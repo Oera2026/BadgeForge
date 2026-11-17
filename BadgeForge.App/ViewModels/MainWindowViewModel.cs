@@ -1190,8 +1190,8 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         else
         {
-            _selectedPrinter = AvailablePrinters.FirstOrDefault(n => n.Contains("SMART", StringComparison.OrdinalIgnoreCase))
-                ?? AvailablePrinters.FirstOrDefault()
+            _selectedPrinter = AvailablePrinters.FirstOrDefault(n => n.Contains("SMART", StringComparison.OrdinalIgnoreCase)
+                    || n.Contains("IDP", StringComparison.OrdinalIgnoreCase))
                 ?? IdpSmart31CardPrinterDriver.DefaultPrinterName;
             _activeDriver = new IdpSmart31CardPrinterDriver(_selectedPrinter);
         }
