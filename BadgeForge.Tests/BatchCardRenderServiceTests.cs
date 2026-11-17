@@ -84,27 +84,22 @@ public class BatchCardRenderServiceTests
     }
 
     [Fact]
-    public async Task RenderAsync_MissingPhoto_DrawsPlaceholderAndWarns()
+    public async Task RenderAsync_MissingPhoto_LeavesFrameBlankAndWarns()
     {
         var cards = await RenderAll(CreateTemplate(), new[] { Job(1, photo: "/no/such/photo.jpg"), Job(2) });
         try
         {
             Assert.All(cards, c => Assert.Contains(c.Warnings, w => w.Contains("photo", StringComparison.OrdinalIgnoreCase)));
 
-            // Centre of the photo frame is the silhouette's head, not blank white card
+            // Nothing is invented for a missing photo: the frame stays blank white card
             double pxPerMm = 1011 / 85.6;
             var center = cards[0].Bitmap.GetPixel((int)(15 * pxPerMm), (int)(20 * pxPerMm));
-            Assert.NotEqual(SKColors.White, center);
+            Assert.Equal(SKColors.White, center);
         }
         finally
         {
             cards.ForEach(c => c.Dispose());
         }
-
-        var blank = await RenderAll(CreateTemplate(), new[] { Job(1) }, new BatchRenderOptions { DrawMissingPhotoPlaceholders = false });
-        double scale = 1011 / 85.6;
-        Assert.Equal(SKColors.White, blank[0].Bitmap.GetPixel((int)(15 * scale), (int)(20 * scale)));
-        blank.ForEach(c => c.Dispose());
     }
 
     [Fact]

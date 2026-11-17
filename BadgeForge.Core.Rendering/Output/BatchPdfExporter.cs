@@ -53,7 +53,15 @@ public sealed class BatchPdfExporter
                         {
                             warnings.AddRange(card.Warnings);
                             // Page compression is CPU work too; keep it off the caller's thread
-                            await Task.Run(() => writer.AddCard(card.Bitmap), ct).ConfigureAwait(false);
+                            // A double-sided card is two consecutive pages: front, then back
+                            await Task.Run(() =>
+                            {
+                                writer.AddCard(card.Bitmap);
+                                if (card.BackBitmap != null)
+                                {
+                                    writer.AddCard(card.BackBitmap);
+                                }
+                            }, ct).ConfigureAwait(false);
                         }
                     }
 

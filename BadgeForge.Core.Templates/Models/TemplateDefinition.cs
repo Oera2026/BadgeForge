@@ -1,4 +1,5 @@
 using BadgeForge.Core.Printing.Models;
+using BadgeForge.Core.Templates.Enums;
 using BadgeForge.Core.Templates.Layers;
 
 namespace BadgeForge.Core.Templates.Models;
@@ -40,6 +41,17 @@ public record TemplateDefinition
     /// Ordered collection of visual badge layers.
     /// </summary>
     public List<TemplateLayer> Layers { get; init; } = new();
+
+    /// <summary>
+    /// True when each card is printed on both sides: layers with <see cref="CardSide.Back"/> form the rear face.
+    /// </summary>
+    public bool IsDoubleSided { get; init; }
+
+    /// <summary>
+    /// Whether the layer ends up on a printed card: visible, and on the front or on the back of a double-sided card.
+    /// Back layers are kept when double-sided is turned off, but must not raise warnings for a face that isn't printed.
+    /// </summary>
+    public bool PrintsLayer(TemplateLayer layer) => layer.IsVisible && (IsDoubleSided || layer.Side == CardSide.Front);
 
     /// <summary>
     /// Timestamp when the template was created (UTC).

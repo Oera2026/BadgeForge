@@ -10,17 +10,15 @@ namespace BadgeForge.Tests;
 public class IdpSmart31CardPrinterDriverTests
 {
     [Fact]
-    public async Task ProbeCapabilities_ReturnsDynamicCapabilities_NotHardcodedConstant()
+    public async Task ProbeCapabilities_InventsNothing_WhenNoPrinterAnswers()
     {
-        using var driver = new IdpSmart31CardPrinterDriver("SMART-31");
-        var capabilities = await driver.ProbeCapabilitiesAsync("SMART-31");
+        using var driver = new IdpSmart31CardPrinterDriver(MissingPrinterName);
+        var capabilities = await driver.ProbeCapabilitiesAsync(MissingPrinterName);
 
-        Assert.NotNull(capabilities);
-        Assert.Equal(300, capabilities.ResolutionDpiX);
-        Assert.Equal(300, capabilities.ResolutionDpiY);
-        Assert.True(capabilities.PrintableWidthPixels > 0);
-        Assert.True(capabilities.PrintableHeightPixels > 0);
-        Assert.True(capabilities.RawDriverProperties.ContainsKey("DriverSource"));
+        Assert.True(capabilities.IsUnavailable);
+        Assert.Equal(0, capabilities.ResolutionDpiX);
+        Assert.Equal(0, capabilities.PrintableWidthPixels);
+        Assert.Equal(0, capabilities.PrintableHeightPixels);
     }
 
     [Fact]
@@ -41,9 +39,9 @@ public class IdpSmart31CardPrinterDriverTests
     }
 
     [Fact]
-    public async Task SubmitCard_ThrowsLoudly_WhenCanvasDimensionsMismatch()
+    public async Task SubmitCard_ThrowsLoudly_WhenThePrinterIsNotAvailable()
     {
-        using var driver = new IdpSmart31CardPrinterDriver();
+        using var driver = new IdpSmart31CardPrinterDriver(MissingPrinterName);
 
         // Mismatched format (e.g. 500x500 px custom badge that does not match probed card canvas)
         var mismatchedFormat = new CardFormat
@@ -61,10 +59,10 @@ public class IdpSmart31CardPrinterDriverTests
             BatchIndex = 1
         };
 
-        var ex = await Assert.ThrowsAsync<PrinterCapabilityMismatchException>(() =>
+        var ex = await Assert.ThrowsAsync<PrinterException>(() =>
             driver.SubmitCardAsync(job));
 
-        Assert.Contains("Silent stretching prevented", ex.Message);
+        Assert.Contains("No card was sent", ex.Message);
     }
 
     [Fact]
@@ -95,7 +93,7 @@ public class IdpSmart31CardPrinterDriverTests
 
         var capabilities = await driver.ProbeCapabilitiesAsync(MissingPrinterName);
 
-        Assert.True(capabilities.IsSimulated);
+        Assert.True(capabilities.IsUnavailable);
         Assert.True(capabilities.RawDriverProperties.ContainsKey("UnavailableReason"));
     }
 

@@ -137,7 +137,7 @@ public class ImageAdjustmentTests
         string path = WritePng(300, 150);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var layer = await vm.AddImageLayerFromFileAsync(path);
 
             Assert.NotNull(layer);
@@ -160,7 +160,7 @@ public class ImageAdjustmentTests
         string path = WritePng(300, 150);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var added = await vm.AddImageLayerFromFileAsync(path);
             double width = added!.Width;
             double height = added.Height;
@@ -198,7 +198,7 @@ public class ImageAdjustmentTests
         string path = WritePng(300, 150);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             await vm.AddImageLayerFromFileAsync(path);
             vm.IsFillMode = true;
             vm.ImageZoom = 2.0;
@@ -230,7 +230,7 @@ public class ImageAdjustmentTests
         string path = WritePng(120, 160);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             vm.SelectedLayer = vm.Template.Layers.OfType<PhotoLayer>().First();
             Assert.False(vm.SelectedLayerHasImage);
 

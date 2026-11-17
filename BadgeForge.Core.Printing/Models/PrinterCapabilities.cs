@@ -59,10 +59,10 @@ public record PrinterCapabilities
     public bool SupportsDuplex { get; init; } = false;
 
     /// <summary>
-    /// True when no real printer answered the probe and these values are a stand-in profile.
-    /// A simulated profile is good enough for previews, but cards must never be "printed" against it.
+    /// True when no real printer answered the probe. The numeric values are then empty (zero) and carry no
+    /// meaning: nothing may be printed, and the reason is in <see cref="RawDriverProperties"/> under "UnavailableReason".
     /// </summary>
-    public bool IsSimulated { get; init; }
+    public bool IsUnavailable { get; init; }
 
     /// <summary>
     /// Additional driver-specific properties or DEVMODE capabilities queried at probe time.

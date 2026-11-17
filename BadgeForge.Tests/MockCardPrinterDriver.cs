@@ -100,6 +100,11 @@ public class MockCardPrinterDriver : ICardPrinterDriver
 
         // 1. Validate format against probed capabilities - FAIL LOUDLY on mismatch
         ProbedCapabilities.EnsureCompatible(job.Format);
+        if (job.IsDuplex && !ProbedCapabilities.SupportsDuplex)
+        {
+            throw new PrinterException(
+                $"Card #{job.BatchIndex} has a back side, but printer '{TargetPrinterName}' can't print double-sided. No card was sent.");
+        }
 
         // 2. Check for simulated fault triggers
         if (SimulatePaperJamAtBatchIndex > 0 && job.BatchIndex == SimulatePaperJamAtBatchIndex)

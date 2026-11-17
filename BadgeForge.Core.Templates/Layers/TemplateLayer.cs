@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using BadgeForge.Core.Templates.Enums;
 using BadgeForge.Core.Templates.Registry;
 using BadgeForge.Core.Templates.Tokens;
 
@@ -50,6 +51,11 @@ public abstract record TemplateLayer
     /// Visual stacking order (higher numbers render on top).
     /// </summary>
     public int ZIndex { get; init; } = 0;
+
+    /// <summary>
+    /// The card face this layer belongs to. Templates saved before double-sided support load as Front.
+    /// </summary>
+    public CardSide Side { get; init; } = CardSide.Front;
 
     /// <summary>
     /// Whether the layer is visible in preview and output.

@@ -75,6 +75,10 @@ public class InteractiveBadgeCanvas : Control
     public event EventHandler? ChooseImageRequested;
 
     private bool _isDragging;
+
+    // A press on a layer only becomes a move once the pointer has travelled a few pixels, so a click never nudges it
+    private bool _dragMoved;
+    private const double DragThresholdPx = 4.0;
     private bool _isResizing;
     private bool _isPanningImage;
     private string? _activeResizeHandle;
@@ -298,18 +302,14 @@ public class InteractiveBadgeCanvas : Control
         var cardBounds = GetCardBounds();
         double radius = cardBounds.Width * CardCornerRadiusMm / Format.WidthMm;
 
-        // 1. Soft layered drop shadow
-        context.DrawRectangle(new SolidColorBrush(Color.FromArgb(10, 16, 24, 22)), null,
-            new RoundedRect(cardBounds.Inflate(6).Translate(new Vector(0, 8)), radius + 6));
+        // 1. Shadow
         context.DrawRectangle(new SolidColorBrush(Color.FromArgb(18, 16, 24, 22)), null,
             new RoundedRect(cardBounds.Inflate(1).Translate(new Vector(0, 2)), radius + 1));
 
         // 2. Card surface
         context.DrawRectangle(Brushes.White, null, new RoundedRect(cardBounds, radius));
 
-        // 3. High-resolution rendered badge bitmap. Without an explicit interpolation mode, Avalonia's
-        // default falls back to low-quality (near-nearest-neighbor) scaling on some backends, which makes
-        // the 300 DPI render look blurry/aliased once it's scaled down to fit the preview panel.
+        // 3. Badge bitmap (explicit HighQuality: the default can fall back to nearest-neighbour)
         if (Bitmap != null)
         {
             using (context.PushClip(new RoundedRect(cardBounds, radius)))
@@ -334,7 +334,7 @@ public class InteractiveBadgeCanvas : Control
         {
             using (context.PushClip(new RoundedRect(cardBounds, radius)))
             {
-                foreach (var layer in vm.Template.Layers.Where(l => l is IImageLayer && l.IsVisible).OrderBy(l => l.ZIndex))
+                foreach (var layer in vm.ActiveSideLayers.Where(l => l is IImageLayer && l.IsVisible).OrderBy(l => l.ZIndex))
                 {
                     if (!vm.LayerHasImage(layer))
                     {
@@ -349,7 +349,7 @@ public class InteractiveBadgeCanvas : Control
         if (vm != null)
         {
             TemplateLayer? chipLayer = null;
-            foreach (var layer in vm.Template.Layers.Where(l => l.IsVisible && l.HasDynamicTokens))
+            foreach (var layer in vm.ActiveSideLayers.Where(l => l.IsVisible && l.HasDynamicTokens))
             {
                 context.DrawRectangle(null, TokenOutlinePen, GetLayerScreenRect(layer, cardBounds).Deflate(0.5));
                 if (layer.Id == _hoverLayerId || (chipLayer == null && layer.Id == vm.SelectedLayer?.Id))
@@ -386,16 +386,18 @@ public class InteractiveBadgeCanvas : Control
                     DrawHandle(context, layerRect.TopRight);
                     DrawHandle(context, layerRect.BottomRight);
                     DrawHandle(context, layerRect.BottomLeft);
+                    if (CanGrabEdgeHandles(layerRect))
+                    {
+                        DrawHandle(context, new Point(layerRect.Center.X, layerRect.Top));
+                        DrawHandle(context, new Point(layerRect.Center.X, layerRect.Bottom));
+                        DrawHandle(context, new Point(layerRect.Left, layerRect.Center.Y));
+                        DrawHandle(context, new Point(layerRect.Right, layerRect.Center.Y));
+                    }
                 }
 
-                if (_isDragging)
+                if (_isDragging && _dragMoved)
                 {
                     DrawSnapGuides(context, cardBounds);
-
-                    if (!_isSnapping)
-                    {
-                        DrawHint(context, "Ctrl to snap");
-                    }
                 }
             }
         }
@@ -464,7 +466,7 @@ public class InteractiveBadgeCanvas : Control
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ColourDropper] Couldn't read the card's pixels: {ex.Message}");
+            Trace.WriteLine($"[ColourDropper] Couldn't read the card's pixels: {ex.Message}");
             return null;
         }
         finally
@@ -760,7 +762,7 @@ public class InteractiveBadgeCanvas : Control
     private static IEnumerable<TemplateLayer> VisibleLayersTopFirst(MainWindowViewModel vm) =>
         vm.Template.Layers
             .Select((layer, index) => (layer, index))
-            .Where(t => t.layer.IsVisible)
+            .Where(t => t.layer.IsVisible && t.layer.Side == vm.ActiveSide)
             .OrderByDescending(t => t.layer.ZIndex)
             .ThenByDescending(t => t.index)
             .Select(t => t.layer);
@@ -920,10 +922,11 @@ public class InteractiveBadgeCanvas : Control
             }
 
             _isDragging = true;
+            _dragMoved = false;
             _lastPointerPos = pos;
             _dragStartPointerPos = pos;
             _dragStartLayerMm = new Point(hitLayer.X, hitLayer.Y);
-            _isSnapping = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+            _isSnapping = false;
             e.Pointer.Capture(this);
             InvalidateVisual();
         }
@@ -995,11 +998,22 @@ public class InteractiveBadgeCanvas : Control
         }
         else if (_isDragging)
         {
-            DragSelectedLayer(vm, pos, cardBounds, e.KeyModifiers.HasFlag(KeyModifiers.Control));
+            if (!_dragMoved)
+            {
+                if (Math.Abs(pos.X - _dragStartPointerPos.X) < DragThresholdPx && Math.Abs(pos.Y - _dragStartPointerPos.Y) < DragThresholdPx)
+                {
+                    return;
+                }
+
+                _dragMoved = true;
+            }
+
+            // Snapping is on by default; Ctrl moves freely and Shift holds the layer to one direction
+            DragSelectedLayer(vm, pos, cardBounds, snap: !e.KeyModifiers.HasFlag(KeyModifiers.Control), lockAxis: e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
         else if (_isResizing && _activeResizeHandle != null)
         {
-            ResizeFromHandle(vm, _activeResizeHandle, pos, cardBounds);
+            ResizeFromHandle(vm, _activeResizeHandle, pos, cardBounds, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             InvalidateVisual();
         }
     }
@@ -1034,6 +1048,7 @@ public class InteractiveBadgeCanvas : Control
 
         bool editedLayer = _isDragging || _isResizing || _isPanningImage || _activeCropHandle != null;
         _isDragging = false;
+        _dragMoved = false;
         _isResizing = false;
         _isPanningImage = false;
         _isPanningView = false;
@@ -1267,6 +1282,13 @@ public class InteractiveBadgeCanvas : Control
     /// </summary>
     protected override Size ArrangeOverride(Size finalSize)
     {
+        // Keep the rendered preview at least as sharp as the card is shown on screen (zoom and display scaling)
+        if (ViewModel is { } previewVm && finalSize.Width > 1 && finalSize.Height > 1)
+        {
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+            previewVm.SetPreviewTargetWidth((int)Math.Ceiling(GetCardBounds(finalSize).Width * scaling));
+        }
+
         if (_textEditor.IsVisible && _textEditor.Layer is { } layer)
         {
             var cardBounds = GetCardBounds(finalSize);
@@ -1394,7 +1416,7 @@ public class InteractiveBadgeCanvas : Control
     /// Moves the dragged layer to follow the pointer from where the drag started. Holding Ctrl locks it onto
     /// the card centre and edges, the safe area, or other layers, and records the guides it locked to.
     /// </summary>
-    private void DragSelectedLayer(MainWindowViewModel vm, Point pos, Rect cardBounds, bool snap)
+    private void DragSelectedLayer(MainWindowViewModel vm, Point pos, Rect cardBounds, bool snap, bool lockAxis)
     {
         var layer = vm.SelectedLayer!;
         double pixelsPerMmX = cardBounds.Width / Format.WidthMm;
@@ -1403,13 +1425,25 @@ public class InteractiveBadgeCanvas : Control
         double x = _dragStartLayerMm.X + (pos.X - _dragStartPointerPos.X) / pixelsPerMmX;
         double y = _dragStartLayerMm.Y + (pos.Y - _dragStartPointerPos.Y) / pixelsPerMmY;
 
+        if (lockAxis)
+        {
+            if (Math.Abs(pos.X - _dragStartPointerPos.X) >= Math.Abs(pos.Y - _dragStartPointerPos.Y))
+            {
+                y = _dragStartLayerMm.Y;
+            }
+            else
+            {
+                x = _dragStartLayerMm.X;
+            }
+        }
+
         _isSnapping = snap;
         _snapGuideXmm = null;
         _snapGuideYmm = null;
 
         if (snap)
         {
-            var others = vm.Template.Layers.Where(l => l.Id != layer.Id && l.IsVisible);
+            var others = vm.ActiveSideLayers.Where(l => l.Id != layer.Id && l.IsVisible);
             var result = LayerSnapper.Snap(x, y, layer.Width, layer.Height,
                 Format.WidthMm, Format.HeightMm, Format.SafeMarginMm, others, SnapDistancePx / pixelsPerMmX);
 
@@ -1423,6 +1457,10 @@ public class InteractiveBadgeCanvas : Control
             x = Math.Round(x, 1);
             y = Math.Round(y, 1);
         }
+
+        // Keep the layer on the card: one dragged clean off is awkward to find again
+        x = Math.Clamp(x, 0, Math.Max(0, Format.WidthMm - layer.Width));
+        y = Math.Clamp(y, 0, Math.Max(0, Format.HeightMm - layer.Height));
 
         vm.SetSelectedLayerPosition(x, y);
         InvalidateVisual();
@@ -1450,7 +1488,7 @@ public class InteractiveBadgeCanvas : Control
     /// opposite corner stays exactly where it was. Measuring from the start (rather than adding up small per-move
     /// steps) keeps the corner under the pointer and stops the anchored edges drifting from rounding.
     /// </summary>
-    private void ResizeFromHandle(MainWindowViewModel vm, string handle, Point pos, Rect cardBounds)
+    private void ResizeFromHandle(MainWindowViewModel vm, string handle, Point pos, Rect cardBounds, bool keepAspect)
     {
         double minSize = MainWindowViewModel.MinLayerSizeMm;
         var start = _resizeStartRectMm;
@@ -1460,15 +1498,33 @@ public class InteractiveBadgeCanvas : Control
         double left = start.Left, top = start.Top, right = start.Right, bottom = start.Bottom;
 
         // The moving edge stops at the card's left/top edge and at the minimum size
-        if (handle.EndsWith('W'))
+        // Edge handles ("N", "E", "S", "W") move one side; corner handles ("NW", ...) move two
+        if (handle.Contains('W'))
             left = Math.Max(0, Math.Min(Math.Round(start.Left + dx, 1), right - minSize));
-        else
+        else if (handle.Contains('E'))
             right = Math.Max(Math.Round(start.Right + dx, 1), left + minSize);
 
-        if (handle.StartsWith('N'))
+        if (handle.Contains('N'))
             top = Math.Max(0, Math.Min(Math.Round(start.Top + dy, 1), bottom - minSize));
-        else
+        else if (handle.Contains('S'))
             bottom = Math.Max(Math.Round(start.Bottom + dy, 1), top + minSize);
+
+        // Shift on a corner keeps the layer's shape, anchored on the opposite corner
+        if (keepAspect && handle.Length == 2 && start.Width > 0 && start.Height > 0)
+        {
+            double scale = Math.Max((right - left) / start.Width, (bottom - top) / start.Height);
+            double w = Math.Max(minSize, start.Width * scale);
+            double h = Math.Max(minSize, start.Height * scale);
+            if (handle.Contains('W'))
+                left = Math.Max(0, right - w);
+            else
+                right = left + w;
+
+            if (handle.Contains('N'))
+                top = Math.Max(0, bottom - h);
+            else
+                bottom = top + h;
+        }
 
         vm.SetSelectedLayerBounds(left, top, right - left, bottom - top);
     }
@@ -1573,6 +1629,10 @@ public class InteractiveBadgeCanvas : Control
                     "NE" => StandardCursorType.TopRightCorner,
                     "SW" => StandardCursorType.BottomLeftCorner,
                     "SE" => StandardCursorType.BottomRightCorner,
+                    "N" => StandardCursorType.TopSide,
+                    "S" => StandardCursorType.BottomSide,
+                    "W" => StandardCursorType.LeftSide,
+                    "E" => StandardCursorType.RightSide,
                     _ => cursor
                 };
             }
@@ -1587,6 +1647,9 @@ public class InteractiveBadgeCanvas : Control
         Cursor = GetCursor(cursor);
     }
 
+    // On a small layer the edge handles would cover the whole body and make it impossible to drag
+    private static bool CanGrabEdgeHandles(Rect r) => r.Width >= HandleHitRadius * 5 && r.Height >= HandleHitRadius * 5;
+
     private static string? HitTestHandles(Rect r, Point p)
     {
         const double handleRadius = HandleHitRadius;
@@ -1599,6 +1662,18 @@ public class InteractiveBadgeCanvas : Control
             return "SW";
         if (new Rect(r.Left - handleRadius, r.Top - handleRadius, handleRadius * 2, handleRadius * 2).Contains(p))
             return "NW";
+
+        if (CanGrabEdgeHandles(r))
+        {
+            if (new Rect(r.Center.X - handleRadius, r.Top - handleRadius, handleRadius * 2, handleRadius * 2).Contains(p))
+                return "N";
+            if (new Rect(r.Center.X - handleRadius, r.Bottom - handleRadius, handleRadius * 2, handleRadius * 2).Contains(p))
+                return "S";
+            if (new Rect(r.Left - handleRadius, r.Center.Y - handleRadius, handleRadius * 2, handleRadius * 2).Contains(p))
+                return "W";
+            if (new Rect(r.Right - handleRadius, r.Center.Y - handleRadius, handleRadius * 2, handleRadius * 2).Contains(p))
+                return "E";
+        }
 
         return null;
     }

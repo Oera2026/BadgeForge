@@ -89,7 +89,7 @@ public class LayerSnapperTests
     [Fact]
     public void SetSelectedLayerPosition_PlacesLayerExactly_AndClampsToCard()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.AddTextLayer();
 
         vm.SetSelectedLayerPosition(22.8, 23.0);

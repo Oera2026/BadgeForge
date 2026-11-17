@@ -160,7 +160,7 @@ public static class PrintDocumentHelper
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[PrintDocumentHelper] Couldn't read the driver's paper forms: {ex.Message}");
+            System.Diagnostics.Trace.WriteLine($"[PrintDocumentHelper] Couldn't read the driver's paper forms: {ex.Message}");
         }
 
         // The fallback form is given portrait (short edge first) and turned by Landscape in ConfigurePrintDocument.

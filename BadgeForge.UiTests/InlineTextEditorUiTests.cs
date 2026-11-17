@@ -27,7 +27,7 @@ public class InlineTextEditorUiTests
 
     private static Harness Open(Func<TextLayer, TextLayer>? configure = null)
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.NewBlankTemplate();
         vm.AddTextLayer(x: 20, y: 20, text: "Visitor Pass");
         var layer = Assert.IsType<TextLayer>(vm.SelectedLayer);

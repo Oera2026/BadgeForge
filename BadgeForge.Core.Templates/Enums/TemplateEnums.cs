@@ -60,3 +60,12 @@ public enum TextOverflowMode
     /// </summary>
     Wrap
 }
+
+/// <summary>
+/// Which face of the card a layer is printed on.
+/// </summary>
+public enum CardSide
+{
+    Front,
+    Back
+}

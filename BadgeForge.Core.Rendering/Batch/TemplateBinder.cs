@@ -47,7 +47,7 @@ public static class TemplateBinder
             {
                 TextLayer text => text with { Text = TokenSyntax.Replace(text.Text, fields, sanitize: true) },
                 BarcodeLayer barcode => barcode with { ContentToken = TokenSyntax.Replace(barcode.ContentToken, fields, sanitize: true) },
-                PhotoLayer photo => BindPhoto(photo, i, fields, renderFields, photos),
+                PhotoLayer photo => BindPhoto(photo, i, template.PrintsLayer(photo), fields, renderFields, photos),
                 var other => other with { }
             };
 
@@ -66,6 +66,7 @@ public static class TemplateBinder
     private static PhotoLayer BindPhoto(
         PhotoLayer photo,
         int index,
+        bool printed,
         IReadOnlyDictionary<string, string> fields,
         Dictionary<string, string> renderFields,
         List<(PhotoLayer, string?)> photos)
@@ -82,7 +83,7 @@ public static class TemplateBinder
         }
 
         var bound = photo with { SourceToken = key };
-        if (bound.IsVisible)
+        if (printed)
         {
             photos.Add((bound, source));
         }

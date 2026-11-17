@@ -60,7 +60,7 @@ public class IdpSmart31CardPrinterDriver : ICardPrinterDriver
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[IdpSmart31CardPrinterDriver] Couldn't list installed printers: {ex.Message}");
+            System.Diagnostics.Trace.WriteLine($"[IdpSmart31CardPrinterDriver] Couldn't list installed printers: {ex.Message}");
             return Array.Empty<string>();
         }
     }
@@ -99,9 +99,9 @@ public class IdpSmart31CardPrinterDriver : ICardPrinterDriver
             unavailableReason = "card printing needs Windows";
         }
 
-        var simulated = CreateSimulatedProfile(name, unavailableReason);
-        _cachedCapabilities = simulated;
-        return Task.FromResult(simulated);
+        var unavailable = CreateUnavailableProfile(name, unavailableReason);
+        _cachedCapabilities = unavailable;
+        return Task.FromResult(unavailable);
     }
 
     /// <summary>
@@ -127,19 +127,19 @@ public class IdpSmart31CardPrinterDriver : ICardPrinterDriver
         }
 
         // 1. Probe the driver; re-probe while the printer was unavailable so one connected mid-session is picked up
-        var capabilities = _cachedCapabilities is { IsSimulated: false } cached
+        var capabilities = _cachedCapabilities is { IsUnavailable: false } cached
             ? cached
             : await ProbeCapabilitiesAsync(TargetPrinterName ?? DefaultPrinterName, ct);
 
-        // 2. Validate format against probed capabilities - FAIL LOUDLY on mismatch
-        capabilities.EnsureCompatible(job.Format);
-
-        if (capabilities.IsSimulated)
+        if (capabilities.IsUnavailable)
         {
             capabilities.RawDriverProperties.TryGetValue("UnavailableReason", out string? reason);
             throw new PrinterException(
                 $"Cannot print card #{job.BatchIndex}: printer '{TargetPrinterName}' is not available ({reason ?? "no printer answered"}). No card was sent.");
         }
+
+        // 2. Validate format against probed capabilities - FAIL LOUDLY on mismatch
+        capabilities.EnsureCompatible(job.Format);
 
         // 3. Check status monitor for mandatory operator pause (every 20 cards) or errors
         var status = await _statusMonitor.PollStatusAsync(ct);
@@ -226,7 +226,7 @@ public class IdpSmart31CardPrinterDriver : ICardPrinterDriver
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[IdpSmart31CardPrinterDriver] Couldn't cancel the card in the printer: {ex.Message}");
+            System.Diagnostics.Trace.WriteLine($"[IdpSmart31CardPrinterDriver] Couldn't cancel the card in the printer: {ex.Message}");
             return Task.FromResult(false);
         }
     }
@@ -264,30 +264,23 @@ public class IdpSmart31CardPrinterDriver : ICardPrinterDriver
         return bitmap;
     }
 
-    private static PrinterCapabilities CreateSimulatedProfile(string printerName, string unavailableReason)
+    private static PrinterCapabilities CreateUnavailableProfile(string printerName, string unavailableReason)
     {
-        // CR80 baseline (85.60mm x 53.98mm @ 300 DPI = 1011x638px) so card previews work without a printer
-        int defaultDpi = 300;
-        int defaultWidthPx = (int)Math.Round((85.60 / 25.4) * defaultDpi);  // 1011
-        int defaultHeightPx = (int)Math.Round((53.98 / 25.4) * defaultDpi); // 638
-
+        // Deliberately empty: no DPI or card size is invented for a printer that didn't answer
         return new PrinterCapabilities
         {
             PrinterName = printerName,
-            DriverName = "IDP SMART-31 (Simulated/Offline)",
-            ResolutionDpiX = defaultDpi,
-            ResolutionDpiY = defaultDpi,
-            PrintableWidthPixels = defaultWidthPx,
-            PrintableHeightPixels = defaultHeightPx,
-            SupportsColor = true,
+            DriverName = "IDP SMART-31 (Unavailable)",
+            ResolutionDpiX = 0,
+            ResolutionDpiY = 0,
+            PrintableWidthPixels = 0,
+            PrintableHeightPixels = 0,
+            SupportsColor = false,
             SupportsDuplex = false,
-            IsSimulated = true,
+            IsUnavailable = true,
             RawDriverProperties = new Dictionary<string, string>
             {
-                ["DriverSource"] = "FallbackProfile",
-                ["HardwareVerificationRequired"] = "True",
-                ["UnavailableReason"] = unavailableReason,
-                ["Note"] = "No printer answered the probe; a 300 DPI CR80 profile is used for previews only."
+                ["UnavailableReason"] = unavailableReason
             }
         };
     }

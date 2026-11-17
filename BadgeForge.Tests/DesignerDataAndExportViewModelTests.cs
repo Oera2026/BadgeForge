@@ -9,7 +9,7 @@ public class DesignerDataAndExportViewModelTests
 {
     private static (MainWindowViewModel Vm, TextLayer Layer) CreateWithText(string text)
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.NewBlankTemplate();
         vm.AddTextLayer(text: text);
         return (vm, Assert.IsType<TextLayer>(vm.SelectedLayer));
@@ -94,7 +94,7 @@ public class DesignerDataAndExportViewModelTests
     [Fact]
     public void AddDataFieldLayer_InsertsTokenBoundLayers()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.NewBlankTemplate();
 
         vm.AddDataFieldLayer(DataFieldKind.Text, "JobTitle");
@@ -128,19 +128,19 @@ public class DesignerDataAndExportViewModelTests
     }
 
     [Fact]
-    public void SampleData_ProvidesStandardCardholderTokens()
+    public void WithNoPeople_PreviewShowsFieldNames_NotInventedData()
     {
-        var fields = new MainWindowViewModel().GetActiveRecordFieldData();
+        var fields = new MainWindowViewModel(new MockCardPrinterDriver()).GetActiveRecordFieldData();
 
-        Assert.Equal("ALEXANDER CROSS", fields["FullName"]);
-        Assert.False(string.IsNullOrEmpty(fields["JobTitle"]));
-        Assert.False(string.IsNullOrEmpty(fields["ExpiryDate"]));
+        Assert.Equal("{{FirstName}}", fields["FirstName"]);
+        Assert.Equal("{{EmployeeId}}", fields["EmployeeId"]);
+        Assert.DoesNotContain(fields.Values, v => v.Contains("ALEXANDER"));
     }
 
     [Fact]
     public void BatchSelection_SelectAllInvertAndClear()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var people = Enumerable.Range(0, 3).Select(_ => vm.AddPerson()).ToList();
         people[1].IsIncluded = false;
 
@@ -168,7 +168,7 @@ public class DesignerDataAndExportViewModelTests
                 """);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             vm.NewBlankTemplate();
             vm.AddDataFieldLayer(DataFieldKind.Text, "JobTitle");
 
@@ -192,7 +192,7 @@ public class DesignerDataAndExportViewModelTests
         string path = Path.Combine(Path.GetTempPath(), $"badgeforge-export-{Guid.NewGuid():N}.pdf");
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var people = Enumerable.Range(1, 3).Select(n =>
             {
                 var person = vm.AddPerson();

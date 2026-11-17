@@ -14,6 +14,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using BadgeForge.App.ViewModels;
 using BadgeForge.App.Views;
+using BadgeForge.Core.Printing.Interfaces;
 using BadgeForge.Core.Rendering.Elements;
 using BadgeForge.Core.Templates.Enums;
 using BadgeForge.Core.Templates.Layers;
@@ -24,10 +25,15 @@ public partial class MainWindow : Window
 {
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
-    public MainWindow()
+    public MainWindow() : this(null)
+    {
+    }
+
+    /// <param name="driver">Printer to use instead of the installed one; for tests.</param>
+    public MainWindow(ICardPrinterDriver? driver)
     {
         InitializeComponent();
-        var viewModel = new MainWindowViewModel
+        var viewModel = new MainWindowViewModel(driver)
         {
             ConfirmPrintWithWarningsAsync = ConfirmPrintWithWarningsAsync
         };
@@ -294,7 +300,19 @@ public partial class MainWindow : Window
         });
     }
 
+    // Save writes to the file the template came from; Save As (and a template with no file yet) asks where.
     private async void OnSaveTemplateClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.TemplateFilePath is { } path)
+        {
+            await RunSafelyAsync("save the template", () => ViewModel.SaveTemplateAsync(path));
+            return;
+        }
+
+        OnSaveTemplateAsClick(sender, e);
+    }
+
+    private async void OnSaveTemplateAsClick(object? sender, RoutedEventArgs e)
     {
         await RunSafelyAsync("save the template", async () =>
         {
@@ -317,6 +335,89 @@ public partial class MainWindow : Window
                 await ViewModel.SaveTemplateAsync(file.Path.LocalPath);
             }
         });
+    }
+
+    // --- My Templates ---
+
+    private void OnMyTemplatesOpened(object? sender, RoutedEventArgs e)
+    {
+        var items = new List<Control>();
+        foreach (var (name, path) in MainWindowViewModel.ListLibraryTemplates())
+        {
+            var item = new MenuItem { Header = name };
+            string templatePath = path;
+            item.Click += async (_, _) => await RunSafelyAsync("open the template", async () =>
+            {
+                if (await ConfirmDiscardTemplateChangesAsync("Open another template"))
+                {
+                    await ViewModel.LoadTemplateAsync(templatePath);
+                }
+            });
+            items.Add(item);
+        }
+
+        if (items.Count == 0)
+        {
+            items.Add(new MenuItem { Header = "(none yet — use Save to My Templates)", IsEnabled = false });
+        }
+
+        MyTemplatesMenu.ItemsSource = items;
+    }
+
+    private async void OnSaveToMyTemplatesClick(object? sender, RoutedEventArgs e)
+    {
+        await RunSafelyAsync("save the template", async () =>
+        {
+            string suggested = ViewModel.Template.Name == "New Badge Template" ? string.Empty : ViewModel.Template.Name;
+            string? name = await PromptForTextAsync("Save to My Templates", "Template name", suggested, "Save");
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            await ViewModel.SaveToLibraryAsync(name, text => SafeFileName(text, "badge_template"));
+        });
+    }
+
+    /// <summary>
+    /// Asks for one line of text in a small dialog; null when cancelled.
+    /// </summary>
+    private async Task<string?> PromptForTextAsync(string title, string label, string initial, string okText)
+    {
+        var box = new TextBox { Text = initial, MinWidth = 280, SelectionStart = 0, SelectionEnd = initial.Length };
+        var ok = new Button { Content = okText, IsDefault = true, IsEnabled = !string.IsNullOrWhiteSpace(initial) };
+        var cancel = new Button { Content = "Cancel", IsCancel = true };
+        var dialog = new Window
+        {
+            Title = title,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
+            ShowInTaskbar = false,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(20),
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock { Text = label },
+                    box,
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 8,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Children = { cancel, ok }
+                    }
+                }
+            }
+        };
+
+        box.TextChanged += (_, _) => ok.IsEnabled = !string.IsNullOrWhiteSpace(box.Text);
+        ok.Click += (_, _) => dialog.Close(box.Text);
+        cancel.Click += (_, _) => dialog.Close(null);
+        dialog.Opened += (_, _) => box.Focus();
+        return await dialog.ShowDialog<string?>(this);
     }
 
     /// <summary>

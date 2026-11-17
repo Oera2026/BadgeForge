@@ -32,11 +32,6 @@ public sealed record BatchRenderOptions
     public int MaxDegreeOfParallelism { get; init; } = Math.Clamp(Environment.ProcessorCount - 1, 1, 4);
 
     /// <summary>
-    /// Print a neutral silhouette in photo frames of people with no usable photo, rather than leaving them blank.
-    /// </summary>
-    public bool DrawMissingPhotoPlaceholders { get; init; } = true;
-
-    /// <summary>
     /// Fail the card (and the batch) when a barcode can't be encoded or doesn't fit, instead of skipping it.
     /// </summary>
     public bool StrictLayerRendering { get; init; }
@@ -68,8 +63,9 @@ public readonly record struct BatchRenderProgress(int Completed, int Total, stri
 /// </summary>
 public sealed class RenderedCard : IDisposable
 {
-    public RenderedCard(int index, CardRenderJob job, SKBitmap bitmap, IReadOnlyList<string> warnings)
+    public RenderedCard(int index, CardRenderJob job, SKBitmap bitmap, IReadOnlyList<string> warnings, SKBitmap? backBitmap = null)
     {
+        BackBitmap = backBitmap;
         Index = index;
         Job = job;
         Bitmap = bitmap;
@@ -86,11 +82,20 @@ public sealed class RenderedCard : IDisposable
     public SKBitmap Bitmap { get; }
 
     /// <summary>
+    /// The rear face of a double-sided card; null for a single-sided one.
+    /// </summary>
+    public SKBitmap? BackBitmap { get; }
+
+    /// <summary>
     /// Things that printed differently than designed for this card: a missing photo, text cut short.
     /// </summary>
     public IReadOnlyList<string> Warnings { get; }
 
-    public void Dispose() => Bitmap.Dispose();
+    public void Dispose()
+    {
+        Bitmap.Dispose();
+        BackBitmap?.Dispose();
+    }
 }
 
 /// <summary>

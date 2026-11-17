@@ -27,40 +27,22 @@
         <!-- ================= APP BAR ================= -->
         <Border Grid.Row="0" Background="{StaticResource BrushSurface}"
                 BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1" Padding="16,0">
-            <Grid ColumnDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <Border Width="26" Height="26" CornerRadius="6" Background="{StaticResource BrushPrimary}">
-                        <TextBlock Text="B" Foreground="White" FontWeight="Bold" FontSize="14"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image Source="/Assets/app-icon.png" Width="18" Height="18"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Classes="title" Text="BadgeForge" VerticalAlignment="Center"/>
                     <Border Width="1" Height="18" Background="{StaticResource BrushBorderStrong}" Margin="6,0"/>
-                    <TextBlock Text="{Binding Template.Name}" FontSize="13"
+                    <TextBlock Classes="body" Text="{Binding Template.Name}"
                                Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                    <TextBlock Classes="caption" Text="●" Foreground="{StaticResource BrushPrimary}" VerticalAlignment="Center"
+                               IsVisible="{Binding HasUnsavedTemplateChanges}" ToolTip.Tip="Unsaved changes"/>
                 </StackPanel>
 
-                <Border Grid.Column="1" Classes="segmented" Width="220"
-                        HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Grid ColumnDefinitions="*,*">
-                        <RadioButton Grid.Column="0" Classes="segment" GroupName="Page" Content="Design"
-                                     IsChecked="{Binding IsDesignPageActive, Mode=TwoWay}"/>
-                        <RadioButton Grid.Column="1" Classes="segment" GroupName="Page" Content="{Binding PeopleTabText}"
-                                     IsChecked="{Binding IsPeoplePageActive, Mode=TwoWay}"/>
-                    </Grid>
-                </Border>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center"
-                            IsVisible="{Binding IsDesignPageActive}">
-                    <Button Classes="ghost icon" Click="OnUndoClick" IsEnabled="{Binding CanUndo}"
-                            ToolTip.Tip="{Binding UndoTooltip}">
-                        <PathIcon Data="{StaticResource IconUndo}" Width="14" Height="14"/>
-                    </Button>
-                    <Button Classes="ghost icon" Click="OnRedoClick" IsEnabled="{Binding CanRedo}"
-                            ToolTip.Tip="{Binding RedoTooltip}">
-                        <PathIcon Data="{StaticResource IconRedo}" Width="14" Height="14"/>
-                    </Button>
-
-                    <Menu VerticalAlignment="Center">
+                    <Menu Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
                         <MenuItem Header="File">
                             <MenuItem Header="New">
                                 <MenuItem Header="Blank Card (CR80)" Click="OnNewBlankCr80Click"/>
@@ -71,7 +53,13 @@
                             </MenuItem>
                             <Separator/>
                             <MenuItem Header="Open…" Click="OnOpenTemplateClick" InputGesture="Ctrl+O"/>
-                            <MenuItem Header="Save…" Click="OnSaveTemplateClick" InputGesture="Ctrl+S"/>
+                            <MenuItem Header="Save" Click="OnSaveTemplateClick" InputGesture="Ctrl+S"/>
+                            <MenuItem Header="Save As…" Click="OnSaveTemplateAsClick"/>
+                            <Separator/>
+                            <MenuItem x:Name="MyTemplatesMenu" Header="My Templates" SubmenuOpened="OnMyTemplatesOpened">
+                                <MenuItem Header="(none yet)" IsEnabled="False"/>
+                            </MenuItem>
+                            <MenuItem Header="Save to My Templates…" Click="OnSaveToMyTemplatesClick"/>
                         </MenuItem>
                         <MenuItem Header="Edit">
                             <MenuItem Header="Undo" Click="OnUndoClick" InputGesture="Ctrl+Z" IsEnabled="{Binding CanUndo}"/>
@@ -82,12 +70,34 @@
                                       IsEnabled="{Binding IsLayerSelected}"/>
                         </MenuItem>
                     </Menu>
+
+                <!-- Spans every column so it centres on the window, not on the gap between the menu and undo/redo -->
+                <Border Grid.Column="0" Grid.ColumnSpan="4" Classes="segmented" Width="220"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="*,*">
+                        <RadioButton Grid.Column="0" Classes="segment" GroupName="Page" Content="Design"
+                                     IsChecked="{Binding IsDesignPageActive, Mode=TwoWay}"/>
+                        <RadioButton Grid.Column="1" Classes="segment" GroupName="Page" Content="{Binding PeopleTabText}"
+                                     IsChecked="{Binding IsPeoplePageActive, Mode=TwoWay}"/>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center"
+                            IsEnabled="{Binding IsDesignPageActive}">
+                    <Button Classes="ghost icon" Click="OnUndoClick" IsEnabled="{Binding CanUndo}"
+                            ToolTip.Tip="{Binding UndoTooltip}">
+                        <PathIcon Data="{StaticResource IconUndo}"/>
+                    </Button>
+                    <Button Classes="ghost icon" Click="OnRedoClick" IsEnabled="{Binding CanRedo}"
+                            ToolTip.Tip="{Binding RedoTooltip}">
+                        <PathIcon Data="{StaticResource IconRedo}"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- ================= WORKSPACE ================= -->
-        <Grid Grid.Row="1" ColumnDefinitions="248,*,300" IsVisible="{Binding IsDesignPageActive}">
+        <Grid Grid.Row="1" ColumnDefinitions="248,*,320" IsVisible="{Binding IsDesignPageActive}">
 
             <!-- ===== LEFT: Layers ===== -->
             <Border Grid.Column="0" Background="{StaticResource BrushSurface}"
@@ -98,8 +108,8 @@
                         <TextBlock Grid.Column="0" Classes="section" Text="LAYERS" VerticalAlignment="Center"/>
                         <Button Grid.Column="1" Classes="ghost" Padding="8,0" MinHeight="28" ToolTip.Tip="Add a layer">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
-                                <TextBlock Text="Add" FontSize="13"/>
+                                <PathIcon Data="{StaticResource IconPlus}"/>
+                                <TextBlock Text="Add"/>
                             </StackPanel>
                             <Button.Flyout>
                                 <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -107,7 +117,7 @@
                                     <MenuItem Header="Photo" Click="OnAddPhotoClick"/>
                                     <MenuItem Header="Barcode" Click="OnAddBarcodeClick"/>
                                     <MenuItem Header="QR code" Click="OnAddQrClick"/>
-                                    <MenuItem Header="Image…" Click="OnAddImageClick"/>
+                                    <MenuItem Header="Image file…" Click="OnAddImageClick"/>
                                     <Separator/>
                                     <!-- Layers bound to each person's data. Tag = "<kind>:<token>" -->
                                     <MenuItem Header="Data field">
@@ -136,28 +146,31 @@
                                     <!-- Tinted when the layer is filled from each person's data -->
                                     <PathIcon Grid.Column="0" Classes="layerIcon" Classes.dynamic="{Binding HasDynamicTokens}"
                                               Data="{Binding Converter={StaticResource LayerIcon}}" Margin="0,0,10,0"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13"
+                                    <TextBlock Classes="body" Grid.Column="1" Text="{Binding Name}"
                                                Opacity="{Binding IsVisible, Converter={StaticResource BoolToDimOpacity}}"
                                                Foreground="{StaticResource BrushTextPrimary}"
                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                     <Button Grid.Column="2" Classes="ghost icon rowAction" Classes.pinned="{Binding !IsVisible}"
-                                            Width="22" Height="22" MinWidth="22" MinHeight="22"
+                                           
                                             Click="OnToggleLayerVisibilityClick"
                                             ToolTip.Tip="Show or hide this layer on the card">
-                                        <PathIcon Width="12" Height="12"
+                                        <PathIcon
                                                   Data="{Binding IsVisible, Converter={StaticResource LayerVisibilityIcon}}"
                                                   Foreground="{StaticResource BrushTextMuted}"/>
                                     </Button>
-                                    <Button Grid.Column="3" Classes="ghost icon" Width="22" Height="22" MinWidth="22" MinHeight="22"
+                                    <Button Grid.Column="3" Classes="ghost icon rowAction" Classes.pinned="{Binding IsLocked}"
                                             Click="OnToggleLayerLockClick"
-                                            IsVisible="{Binding IsLocked}"
-                                            ToolTip.Tip="Locked — click to allow editing on the canvas">
-                                        <PathIcon Width="12" Height="12" Data="{StaticResource IconLock}"
-                                                  Foreground="{StaticResource BrushTextMuted}"/>
+                                            ToolTip.Tip="Lock or unlock this layer">
+                                        <Panel>
+                                            <PathIcon Data="{StaticResource IconLock}" IsVisible="{Binding IsLocked}"
+                                                      Foreground="{StaticResource BrushTextMuted}"/>
+                                            <PathIcon Data="{StaticResource IconLockOpen}" IsVisible="{Binding !IsLocked}"
+                                                      Foreground="{StaticResource BrushTextMuted}"/>
+                                        </Panel>
                                     </Button>
-                                    <Button Grid.Column="4" Classes="ghost icon rowAction" Width="22" Height="22" MinWidth="22" MinHeight="22"
+                                    <Button Grid.Column="4" Classes="ghost icon rowAction"
                                             ToolTip.Tip="More layer options">
-                                        <PathIcon Width="12" Height="12" Data="{StaticResource IconMore}" Foreground="{StaticResource BrushTextMuted}"/>
+                                        <PathIcon Data="{StaticResource IconMore}" Foreground="{StaticResource BrushTextMuted}"/>
                                         <Button.Flyout>
                                             <MenuFlyout Placement="BottomEdgeAlignedRight">
                                                 <MenuItem Header="Move up" Click="OnMoveLayerUpClick"/>
@@ -194,22 +207,31 @@
                         <ComboBox ItemsSource="{x:Static vm:MainWindowViewModel.OrientationOptions}"
                                   SelectedItem="{Binding SelectedOrientation, Mode=TwoWay}" MinWidth="130"
                                   ToolTip.Tip="Orientation"/>
+                        <CheckBox IsChecked="{Binding IsDoubleSided, Mode=TwoWay}" Content="Print both sides"
+                                  VerticalAlignment="Center"
+                                  ToolTip.Tip="Print a back on every badge. Needs a printer with a card flipper."/>
+                        <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsDoubleSided}">
+                            <ToggleButton Classes="ghost" MinHeight="28" Height="28" Padding="10,0" Content="Front"
+                                          IsChecked="{Binding IsEditingFront, Mode=TwoWay}" ToolTip.Tip="Edit the front of the badge"/>
+                            <ToggleButton Classes="ghost" MinHeight="28" Height="28" Padding="10,0" Content="Back"
+                                          IsChecked="{Binding IsEditingBack, Mode=TwoWay}" ToolTip.Tip="Edit the back of the badge"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <Border Grid.Column="2" Background="{StaticResource BrushSurface}" CornerRadius="8" Margin="12,0,0,0"
                             BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" Padding="2">
                         <StackPanel Orientation="Horizontal" Spacing="2">
-                            <Button Classes="ghost icon" Width="28" Height="28" MinHeight="28" Click="OnZoomOutClick" ToolTip.Tip="Zoom out">
-                                <PathIcon Data="{StaticResource IconMinus}" Width="12" Height="12"/>
+                            <Button Classes="ghost icon" Click="OnZoomOutClick" ToolTip.Tip="Zoom out">
+                                <PathIcon Data="{StaticResource IconMinus}"/>
                             </Button>
-                            <TextBlock Text="{Binding #BadgeCanvas.Zoom, StringFormat='{}{0:P0}'}" FontSize="12"
+                            <TextBlock Classes="label" Text="{Binding #BadgeCanvas.Zoom, StringFormat='{}{0:P0}'}"
                                        Foreground="{StaticResource BrushTextSecondary}"
                                        VerticalAlignment="Center" Width="44" TextAlignment="Center"/>
-                            <Button Classes="ghost icon" Width="28" Height="28" MinHeight="28" Click="OnZoomInClick" ToolTip.Tip="Zoom in">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
+                            <Button Classes="ghost icon" Click="OnZoomInClick" ToolTip.Tip="Zoom in">
+                                <PathIcon Data="{StaticResource IconPlus}"/>
                             </Button>
                             <Border Width="1" Height="16" Background="{StaticResource BrushBorder}" Margin="2,0"/>
-                            <Button Classes="ghost" MinHeight="28" Height="28" Padding="10,0" FontSize="12"
+                            <Button Classes="ghost" MinHeight="28" Height="28" Padding="10,0"
                                     Content="Fit" Click="OnZoomResetClick" ToolTip.Tip="Fit card to view"/>
                         </StackPanel>
                     </Border>
@@ -225,8 +247,8 @@
                 <StackPanel Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="16,8" Spacing="8" MaxWidth="720">
                     <!-- Printer / preview problems -->
                     <Border IsVisible="{Binding HasCanvasNotice}" Padding="12,8" CornerRadius="8"
-                            Background="#FEF3F2" BorderBrush="#FECDCA" BorderThickness="1">
-                        <TextBlock Text="{Binding CanvasNoticeText}" FontSize="12" Foreground="#7A271A" TextWrapping="Wrap"/>
+                            Background="{StaticResource BrushDangerSurface}" BorderBrush="{StaticResource BrushDangerBorder}" BorderThickness="1">
+                        <TextBlock Classes="label" Text="{Binding CanvasNoticeText}" Foreground="{StaticResource BrushDangerText}" TextWrapping="Wrap"/>
                     </Border>
 
                     <!-- Printing is handled on the People page; point there when a print run is waiting on the user -->
@@ -239,11 +261,11 @@
                             </MultiBinding>
                         </Border.IsVisible>
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <PathIcon Data="{StaticResource IconPrinter}" Width="12" Height="12"
+                            <PathIcon Data="{StaticResource IconPrinter}"
                                       Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
-                            <TextBlock Text="Printing is paused and needs you" FontSize="12"
+                            <TextBlock Classes="label" Text="Printing is paused and needs you"
                                        Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
-                            <Button Classes="primary" Content="Open print list" MinHeight="26" Height="26" Padding="10,0" FontSize="12"
+                            <Button Classes="primary" Content="Open People" Padding="10,0"
                                     Click="OnOpenPrintListClick"/>
                         </StackPanel>
                     </Border>
@@ -254,24 +276,24 @@
                         Background="{StaticResource BrushSurface}" CornerRadius="8"
                         BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" Padding="2">
                     <StackPanel Orientation="Horizontal" Spacing="2">
-                        <Button Classes="ghost icon" Width="28" Height="28" MinHeight="28" IsVisible="{Binding HasRecords}"
+                        <Button Classes="ghost icon" IsVisible="{Binding HasRecords}"
                                 Click="OnFirstRecordClick" IsEnabled="{Binding CanGoPrevious}" ToolTip.Tip="First record">
-                            <PathIcon Data="{StaticResource IconFirst}" Width="12" Height="12"/>
+                            <PathIcon Data="{StaticResource IconFirst}"/>
                         </Button>
-                        <Button Classes="ghost icon" Width="28" Height="28" MinHeight="28" IsVisible="{Binding HasRecords}"
+                        <Button Classes="ghost icon" IsVisible="{Binding HasRecords}"
                                 Click="OnPrevRecordClick" IsEnabled="{Binding CanGoPrevious}" ToolTip.Tip="Previous record">
-                            <PathIcon Data="{StaticResource IconChevronLeft}" Width="12" Height="12"/>
+                            <PathIcon Data="{StaticResource IconChevronLeft}"/>
                         </Button>
-                        <TextBlock Text="{Binding RecordPaginationText}" FontSize="12"
+                        <TextBlock Classes="label" Text="{Binding RecordPaginationText}"
                                    Foreground="{StaticResource BrushTextSecondary}"
                                    VerticalAlignment="Center" Margin="12,6"/>
-                        <Button Classes="ghost icon" Width="28" Height="28" MinHeight="28" IsVisible="{Binding HasRecords}"
+                        <Button Classes="ghost icon" IsVisible="{Binding HasRecords}"
                                 Click="OnNextRecordClick" IsEnabled="{Binding CanGoNext}" ToolTip.Tip="Next record">
-                            <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12"/>
+                            <PathIcon Data="{StaticResource IconChevronRight}"/>
                         </Button>
-                        <Button Classes="ghost icon" Width="28" Height="28" MinHeight="28" IsVisible="{Binding HasRecords}"
+                        <Button Classes="ghost icon" IsVisible="{Binding HasRecords}"
                                 Click="OnLastRecordClick" IsEnabled="{Binding CanGoNext}" ToolTip.Tip="Last record">
-                            <PathIcon Data="{StaticResource IconLast}" Width="12" Height="12"/>
+                            <PathIcon Data="{StaticResource IconLast}"/>
                         </Button>
                     </StackPanel>
                 </Border>
@@ -305,8 +327,8 @@
                                             <Button Grid.Column="1" Classes="ghost icon" Click="OnDuplicateLayerClick" ToolTip.Tip="Duplicate layer">
                                                 <PathIcon Data="{StaticResource IconCopy}"/>
                                             </Button>
-                                            <Button Grid.Column="2" Classes="ghost icon danger" Click="OnDeleteLayerClick"
-                                                    IsEnabled="{Binding !SelectedLayer.IsLocked}" ToolTip.Tip="Delete layer">
+                                            <Button Grid.Column="2" Classes="ghost icon danger" Margin="12,0,0,0" Click="OnDeleteLayerClick"
+                                                    IsEnabled="{Binding !SelectedLayer.IsLocked}" ToolTip.Tip="Delete layer (unlock it first if it is locked)">
                                                 <PathIcon Data="{StaticResource IconTrash}"/>
                                             </Button>
                                         </Grid>
@@ -314,7 +336,7 @@
                                         <Border Background="{StaticResource BrushHover}" CornerRadius="6" Padding="10,8"
                                                 IsVisible="{Binding SelectedLayer.IsLocked}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <PathIcon Data="{StaticResource IconLock}" Width="12" Height="12" Foreground="{StaticResource BrushTextSecondary}"/>
+                                                <PathIcon Data="{StaticResource IconLock}" Foreground="{StaticResource BrushTextSecondary}"/>
                                                 <TextBlock Classes="label" Text="Locked. Unlock it from the Layers list to edit."
                                                            TextWrapping="Wrap"/>
                                             </StackPanel>
@@ -327,7 +349,7 @@
                                     <StackPanel Spacing="8" IsVisible="{Binding IsLayerSelected}">
                                         <TextBlock Classes="section" Text="POSITION &amp; SIZE"/>
                                         <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto"
-                                              ToolTip.Tip="Arrow keys nudge the layer by 0.1 mm on the card, Shift by 1 mm">
+                                              ToolTip.Tip="Arrow keys nudge 0.1 mm, Shift+Arrow 1 mm">
                                             <NumericUpDown Grid.Row="0" Grid.Column="0" Value="{Binding LayerX, Mode=TwoWay}"
                                                            Increment="0.5" Minimum="0" FormatString="0.##">
                                                 <NumericUpDown.InnerLeftContent><TextBlock Classes="adorn" Text="X"/></NumericUpDown.InnerLeftContent>
@@ -349,6 +371,7 @@
                                                 <NumericUpDown.InnerRightContent><TextBlock Classes="adornRight" Text="mm"/></NumericUpDown.InnerRightContent>
                                             </NumericUpDown>
                                         </Grid>
+                                        <TextBlock Classes="muted" Text="Arrow keys nudge the layer 0.1 mm, or 1 mm with Shift."/>
                                     </StackPanel>
 
                                     <!-- Text layer -->
@@ -361,7 +384,7 @@
                                                   SelectedItem="{Binding TextFontFamily, Mode=TwoWay}"/>
                                         <Grid ColumnDefinitions="*,8,*">
                                             <NumericUpDown Grid.Column="0" Value="{Binding TextFontSize, Mode=TwoWay}" ToolTip.Tip="Font size"
-                                                           Increment="1" Minimum="1" Maximum="400" FormatString="0.#">
+                                                           Increment="1" Minimum="1" Maximum="400" FormatString="0.##">
                                                 <NumericUpDown.InnerRightContent><TextBlock Classes="adornRight" Text="pt"/></NumericUpDown.InnerRightContent>
                                             </NumericUpDown>
                                             <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ToolTip.Tip="Weight"
@@ -373,17 +396,17 @@
                                                 <RadioButton Grid.Column="0" Classes="segment" GroupName="TextAlign"
                                                              IsChecked="{Binding IsTextAlignLeft, Mode=TwoWay}"
                                                              ToolTip.Tip="Align left">
-                                                    <PathIcon Data="{StaticResource IconAlignLeft}" Width="14" Height="14"/>
+                                                    <PathIcon Data="{StaticResource IconAlignLeft}"/>
                                                 </RadioButton>
                                                 <RadioButton Grid.Column="1" Classes="segment" GroupName="TextAlign"
                                                              IsChecked="{Binding IsTextAlignCenter, Mode=TwoWay}"
                                                              ToolTip.Tip="Align centre">
-                                                    <PathIcon Data="{StaticResource IconAlignCenter}" Width="14" Height="14"/>
+                                                    <PathIcon Data="{StaticResource IconAlignCenter}"/>
                                                 </RadioButton>
                                                 <RadioButton Grid.Column="2" Classes="segment" GroupName="TextAlign"
                                                              IsChecked="{Binding IsTextAlignRight, Mode=TwoWay}"
                                                              ToolTip.Tip="Align right">
-                                                    <PathIcon Data="{StaticResource IconAlignRight}" Width="14" Height="14"/>
+                                                    <PathIcon Data="{StaticResource IconAlignRight}"/>
                                                 </RadioButton>
                                             </Grid>
                                         </Border>
@@ -424,12 +447,13 @@
                                             <!-- Reads the colour off the drawn card, so text can be matched to a logo or a photo -->
                                             <ToggleButton Grid.Column="2" Classes="ghost icon" IsChecked="{Binding IsPickingColor, Mode=TwoWay}"
                                                           IsEnabled="{Binding CanPickColor}"
-                                                          ToolTip.Tip="Match a colour from the card: click the colour you want on the badge">
-                                                <PathIcon Data="{StaticResource IconDropper}" Width="14" Height="14"/>
+                                                          ToolTip.Tip="Pick a colour from the card">
+                                                <PathIcon Data="{StaticResource IconDropper}"/>
                                             </ToggleButton>
                                         </Grid>
                                         <CheckBox IsChecked="{Binding TextPrintsAsPureBlack, Mode=TwoWay}"
-                                                  Content="Print as pure black (K resin)"/>
+                                                  Content="Print as pure black (K resin)"
+                                                  ToolTip.Tip="Prints with the black resin panel only, keeping it sharp and scannable"/>
                                     </StackPanel>
 
                                     <!-- Photo layer -->
@@ -437,7 +461,7 @@
                                         <TextBlock Classes="section" Text="PHOTO"/>
                                         <Grid ColumnDefinitions="Auto,12,*">
                                             <TextBlock Grid.Column="0" Classes="label" Text="Data field" VerticalAlignment="Center"/>
-                                            <TextBox Grid.Column="2" Text="{Binding PhotoSourceToken, Mode=TwoWay}" PlaceholderText="{}{Photo}"/>
+                                            <TextBox Grid.Column="2" Text="{Binding PhotoSourceToken, Mode=TwoWay}" PlaceholderText="{}{{Photo}}"/>
                                         </Grid>
                                     </StackPanel>
 
@@ -454,7 +478,7 @@
                                                             HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <PathIcon Data="{StaticResource IconImage}" Width="20" Height="20"
                                                               Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,2"/>
-                                                    <TextBlock Text="Choose image…" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                                    <TextBlock Classes="body" Text="Choose image…" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                                Foreground="{StaticResource BrushTextPrimary}"/>
                                                 </StackPanel>
                                             </Grid>
@@ -463,9 +487,9 @@
                                             <TextBlock Grid.Column="0" Classes="label" Text="{Binding SelectedImageInfo}"
                                                        ToolTip.Tip="{Binding SelectedImageInfo}"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="1" Classes="ghost icon danger" Width="28" Height="28" MinWidth="28" MinHeight="28"
+                                            <Button Grid.Column="1" Classes="ghost icon danger"
                                                     Click="OnClearImageClick" ToolTip.Tip="Remove image">
-                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12"/>
+                                                <PathIcon Data="{StaticResource IconTrash}"/>
                                             </Button>
                                         </Grid>
                                     </StackPanel>
@@ -490,17 +514,17 @@
                                             <ToggleButton Grid.Column="0" IsChecked="{Binding IsRepositioningImage, Mode=TwoWay}"
                                                           IsEnabled="{Binding SelectedLayerHasImage}"
                                                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                          ToolTip.Tip="Show the crop box on the card: drag its edges to crop, drag inside to move the picture, scroll to zoom (or double-click the image)">
+                                                          ToolTip.Tip="Crop box: drag edges to crop, drag inside to move, scroll to zoom">
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <PathIcon Data="{StaticResource IconCrop}" Width="12" Height="12"/>
-                                                    <TextBlock Text="Crop box" FontSize="13"/>
+                                                    <PathIcon Data="{StaticResource IconCrop}"/>
+                                                    <TextBlock Text="Crop box"/>
                                                 </StackPanel>
                                             </ToggleButton>
                                             <Button Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                     ToolTip.Tip="Crop to a set shape, or choose which part of the image to keep">
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <TextBlock Text="Presets" FontSize="13"/>
-                                                    <PathIcon Data="{StaticResource IconChevronDown}" Width="10" Height="10"/>
+                                                    <TextBlock Text="Presets"/>
+                                                    <PathIcon Data="{StaticResource IconChevronDown}"/>
                                                 </StackPanel>
                                                 <Button.Flyout>
                                                     <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -604,10 +628,10 @@
                                                 <TextBlock Grid.Column="2" Classes="label" Text="{Binding ImageSaturation, StringFormat='{}{0:+0%;-0%;0%}'}"
                                                            TextAlignment="Right" VerticalAlignment="Center"/>
                                             </Grid>
-                                            <Grid ColumnDefinitions="72,*">
+                                            <Grid ColumnDefinitions="72,*,44">
                                                 <TextBlock Grid.Column="0" Classes="label" Text="Corners" VerticalAlignment="Center"/>
-                                                <NumericUpDown Grid.Column="1" Value="{Binding ImageCornerRadius, Mode=TwoWay}"
-                                                               Increment="0.5" Minimum="0" Maximum="20" FormatString="F1">
+                                                <NumericUpDown Grid.Column="1" Grid.ColumnSpan="2" Value="{Binding ImageCornerRadius, Mode=TwoWay}"
+                                                               Increment="0.5" Minimum="0" Maximum="20" FormatString="0.##">
                                                     <NumericUpDown.InnerRightContent><TextBlock Classes="adornRight" Text="mm"/></NumericUpDown.InnerRightContent>
                                                 </NumericUpDown>
                                             </Grid>
@@ -620,13 +644,14 @@
                                     <!-- Barcode layer -->
                                     <StackPanel Spacing="8" IsVisible="{Binding IsBarcodeLayerSelected}">
                                         <TextBlock Classes="section" Text="BARCODE"/>
-                                        <TextBox Text="{Binding BarcodeContent, Mode=TwoWay}" PlaceholderText="{}{EmployeeId}"
-                                                 ToolTip.Tip="The value the code holds. Type {FieldName} to use each person's data."/>
+                                        <TextBox Text="{Binding BarcodeContent, Mode=TwoWay}" PlaceholderText="{}{{EmployeeId}}"
+                                                 ToolTip.Tip="The value the code holds. Type {{FieldName}} to use each person's data."/>
                                         <CheckBox IsChecked="{Binding BarcodeIncludeText, Mode=TwoWay}"
                                                   IsVisible="{Binding IsLinearBarcodeSelected}"
                                                   Content="Show text under barcode"/>
                                         <CheckBox IsChecked="{Binding BarcodePrintsAsPureBlack, Mode=TwoWay}"
-                                                  Content="Print as pure black (K resin)"/>
+                                                  Content="Print as pure black (K resin)"
+                                                  ToolTip.Tip="Prints with the black resin panel only, keeping it sharp and scannable"/>
                                     </StackPanel>
 
                                     </StackPanel>
@@ -642,21 +667,21 @@
                                 <StackPanel Margin="16" Spacing="22">
 
                                     <StackPanel Spacing="12">
-                                        <TextBlock Classes="section" Text="SAMPLE DATA"/>
+                                        <TextBlock Classes="section" Text="DATA"/>
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center" Margin="0,0,8,0">
                                                 <TextBlock Classes="label" Text="Spreadsheet"/>
-                                                <TextBlock Text="{Binding CsvFileName}" FontSize="13"
+                                                <TextBlock Classes="body" Text="{Binding CsvFileName}"
                                                            Foreground="{StaticResource BrushTextPrimary}"
                                                            ToolTip.Tip="{Binding CsvFilePath}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                             <Button Grid.Column="1" Content="Choose…" Click="OnBrowseCsvClick"
-                                                    ToolTip.Tip="A CSV or Excel (.xlsx) roster"/>
+                                                    ToolTip.Tip="A CSV or Excel (.xlsx) spreadsheet"/>
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center" Margin="0,0,8,0">
                                                 <TextBlock Classes="label" Text="Photo folder"/>
-                                                <TextBlock Text="{Binding PhotoFolderName}" FontSize="13"
+                                                <TextBlock Classes="body" Text="{Binding PhotoFolderName}"
                                                            Foreground="{StaticResource BrushTextPrimary}"
                                                            ToolTip.Tip="{Binding PhotoFolderPath}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
@@ -684,11 +709,11 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:ColumnMappingItem">
                                                         <Grid ColumnDefinitions="100,20,*">
-                                                            <TextBlock Grid.Column="0" Text="{Binding TemplateToken}" FontSize="13"
+                                                            <TextBlock Classes="body" Grid.Column="0" Text="{Binding TemplateToken}"
                                                                        Foreground="{StaticResource BrushTextPrimary}"
                                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                                             <PathIcon Grid.Column="1" Data="{StaticResource IconChevronRight}"
-                                                                      Width="10" Height="10" Foreground="{StaticResource BrushTextMuted}"/>
+                                                                      Foreground="{StaticResource BrushTextMuted}"/>
                                                             <TextBox Grid.Column="2" Text="{Binding CsvColumn, Mode=TwoWay}"
                                                                      PlaceholderText="Column"/>
                                                         </Grid>
@@ -706,7 +731,7 @@
         </Grid>
 
         <!-- ================= PEOPLE PAGE ================= -->
-        <Grid Grid.Row="1" x:Name="PeoplePage" ColumnDefinitions="*,340"
+        <Grid Grid.Row="1" x:Name="PeoplePage" ColumnDefinitions="*,320"
               Background="{StaticResource BrushNeutralBase}" IsVisible="{Binding IsPeoplePageActive}">
 
             <!-- ===== LEFT: Print list ===== -->
@@ -714,27 +739,29 @@
 
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="24,20,24,12">
                     <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
-                        <TextBlock Text="People" FontSize="18" FontWeight="SemiBold"
+                        <TextBlock Classes="heading" Text="People"
                                    Foreground="{StaticResource BrushTextPrimary}"/>
                         <TextBlock Classes="label" Text="{Binding PeopleSummaryText}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Classes="label" Foreground="{StaticResource BrushTextMuted}"
+                                   Text="Tab moves between fields. Enter adds the next person."/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button ToolTip.Tip="Add people from photos or a spreadsheet">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <TextBlock Text="Import" VerticalAlignment="Center"/>
-                                <PathIcon Data="{StaticResource IconChevronDown}" Width="10" Height="10"/>
+                                <PathIcon Data="{StaticResource IconChevronDown}"/>
                             </StackPanel>
                             <Button.Flyout>
                                 <MenuFlyout>
-                                    <MenuItem Header="People from photos…" Click="OnAddPeopleFromPhotosClick"/>
-                                    <MenuItem Header="People from a spreadsheet (CSV or Excel)…" Click="OnImportRosterClick"/>
+                                    <MenuItem Header="Add from photos…" Click="OnAddPeopleFromPhotosClick"/>
+                                    <MenuItem Header="Import spreadsheet (CSV or Excel)…" Click="OnImportRosterClick"/>
                                     <Separator/>
                                     <MenuItem Header="Match photos from a folder…" Click="OnBrowsePhotosClick"/>
                                 </MenuFlyout>
                             </Button.Flyout>
                         </Button>
                         <Button Classes="icon" ToolTip.Tip="More list options">
-                            <PathIcon Data="{StaticResource IconMore}" Width="14" Height="14"/>
+                            <PathIcon Data="{StaticResource IconMore}"/>
                             <Button.Flyout>
                                 <MenuFlyout>
                                     <MenuItem Header="Invert ticks" Click="OnInvertPeopleSelectionClick" IsEnabled="{Binding HasRecords}"/>
@@ -750,7 +777,7 @@
                         </Button>
                         <Button Classes="primary" Click="OnAddPersonClick" ToolTip.Tip="Tip: press Enter in a row to add the next person">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
+                                <PathIcon Data="{StaticResource IconPlus}"/>
                                 <TextBlock Text="Add person" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -840,19 +867,19 @@
                                     <Border Classes="chip personStatus" HorizontalAlignment="Right"
                                             Background="{Binding StatusBadgeColor}" IsVisible="{Binding HasPrintStatus}"
                                             ToolTip.Tip="{Binding ErrorMessage}">
-                                        <TextBlock Text="{Binding PrintStatus}" FontSize="11" FontWeight="SemiBold"
+                                        <TextBlock Classes="caption" Text="{Binding PrintStatus}" FontWeight="SemiBold"
                                                    Foreground="{StaticResource BrushTextPrimary}"/>
                                     </Border>
                                     <StackPanel Classes="personActions" Orientation="Horizontal" Spacing="2"
                                                 HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button Classes="ghost icon" Click="OnMovePersonUpClick" IsTabStop="False" ToolTip.Tip="Move up">
-                                            <PathIcon Data="{StaticResource IconChevronUp}" Width="12" Height="12"/>
+                                            <PathIcon Data="{StaticResource IconChevronUp}"/>
                                         </Button>
                                         <Button Classes="ghost icon" Click="OnMovePersonDownClick" IsTabStop="False" ToolTip.Tip="Move down">
-                                            <PathIcon Data="{StaticResource IconChevronDown}" Width="12" Height="12"/>
+                                            <PathIcon Data="{StaticResource IconChevronDown}"/>
                                         </Button>
-                                        <Button Classes="ghost icon danger" Click="OnRemovePersonClick" IsTabStop="False" ToolTip.Tip="Remove from the list">
-                                            <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13"/>
+                                        <Button Classes="ghost icon danger" Margin="8,0,0,0" Click="OnRemovePersonClick" IsTabStop="False" ToolTip.Tip="Remove from the list">
+                                            <PathIcon Data="{StaticResource IconTrash}"/>
                                         </Button>
                                     </StackPanel>
                                 </Panel>
@@ -866,14 +893,14 @@
                         Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorderStrong}" BorderThickness="1">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="440" Margin="24">
                         <PathIcon Data="{StaticResource IconImage}" Width="28" Height="28" Foreground="{StaticResource BrushSecondary}"/>
-                        <TextBlock Text="Build your print list" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
+                        <TextBlock Classes="title" Text="Add people to print" HorizontalAlignment="Center"
                                    Foreground="{StaticResource BrushTextPrimary}"/>
                         <TextBlock Classes="muted" TextAlignment="Center"
-                                   Text="Add people one at a time, drag photos here, or import a CSV or Excel roster."/>
+                                   Text="Add people one at a time, drag photos here, or import a spreadsheet."/>
                         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,4,0,0">
                             <Button Classes="primary" Content="Add person" Click="OnAddPersonClick"/>
                             <Button Content="Add from photos…" Click="OnAddPeopleFromPhotosClick"/>
-                            <Button Content="Import roster…" Click="OnImportRosterClick"/>
+                            <Button Content="Import spreadsheet…" Click="OnImportRosterClick"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -888,7 +915,7 @@
                         <StackPanel Spacing="10">
                             <TextBlock Classes="section" Text="BADGE PREVIEW"/>
                             <Border x:Name="PeoplePreviewDropZone" Classes="previewDrop" CornerRadius="10" ClipToBounds="True"
-                                    Background="White" HorizontalAlignment="Center"
+                                    Background="{StaticResource BrushSurface}" HorizontalAlignment="Center"
                                     BorderBrush="{StaticResource BrushBorder}" BorderThickness="1"
                                     ToolTip.Tip="Drag an image file here to set this person's photo">
                                 <Image Source="{Binding PreviewBitmap}" Stretch="Uniform" MaxWidth="306" MaxHeight="306"
@@ -896,12 +923,12 @@
                             </Border>
                             <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsPersonSelected}">
                                 <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding SelectedPerson.Name}" FontSize="14" FontWeight="SemiBold"
+                                    <TextBlock Classes="title" Text="{Binding SelectedPerson.Name}"
                                                Foreground="{StaticResource BrushTextPrimary}" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Classes="label" Text="{Binding SelectedPerson.PhotoFileName}" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                                 <Button Grid.Column="1" Classes="ghost icon" ToolTip.Tip="Photo options" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconImage}" Width="14" Height="14"/>
+                                    <PathIcon Data="{StaticResource IconImage}"/>
                                     <Button.Flyout>
                                         <MenuFlyout>
                                             <MenuItem Header="Choose photo…" Click="OnChooseSelectedPersonPhotoClick"/>
@@ -922,12 +949,12 @@
                             <Button Classes="primary" Content="{Binding PrintPeopleButtonText}" MinHeight="40"
                                     Click="OnStartBatchClick" IsEnabled="{Binding CanPrintPeople}"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                            <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding IsBatchActive}">
+                            <Grid ColumnDefinitions="*,8,*">
                                 <Button Grid.Column="0" Content="Pause" Click="OnPauseBatchClick"
                                         IsEnabled="{Binding IsBatchRunning}" IsVisible="{Binding !IsBatchPausedByUser}"
                                         ToolTip.Tip="Finish the card being printed, then hold before the next one"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                                <Button Grid.Column="0" Classes="primary" Content="Resume" Click="OnResumeBatchClick"
+                                <Button Grid.Column="0" Content="Resume" Click="OnResumeBatchClick"
                                         IsVisible="{Binding IsBatchPausedByUser}"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
                                 <Button Grid.Column="2" Classes="danger" Click="OnStopBatchClick"
@@ -935,12 +962,12 @@
                                         ToolTip.Tip="Stop on the card being printed right now, then choose what happens to it"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <PathIcon Data="{StaticResource IconStop}" Width="10" Height="10"/>
-                                        <TextBlock Text="Stop" FontSize="13"/>
+                                        <PathIcon Data="{StaticResource IconStop}"/>
+                                        <TextBlock Text="Stop"/>
                                     </StackPanel>
                                 </Button>
                             </Grid>
-                            <StackPanel Spacing="6" IsVisible="{Binding IsBatchActive}">
+                            <StackPanel Spacing="6">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Grid.Column="0" Classes="label" Text="Progress"/>
                                     <TextBlock Grid.Column="1" Classes="label" Text="{Binding BatchProgressPercent, StringFormat='{}{0}%'}"/>
@@ -968,12 +995,12 @@
 
                         <!-- Held on the card that is physically in the printer: the run goes no further until the
                              operator says what happens to that card -->
-                        <Border Background="#FFF8E8" BorderBrush="#E9C46A" BorderThickness="1"
+                        <Border Background="{StaticResource BrushWarningSurface}" BorderBrush="{StaticResource BrushWarningBorder}" BorderThickness="1"
                                 CornerRadius="8" Padding="12" IsVisible="{Binding StopPromptVisible}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Stopped on this card" FontWeight="SemiBold" FontSize="13"
+                                <TextBlock Classes="body" Text="Stopped on this card" FontWeight="SemiBold"
                                            Foreground="{StaticResource BrushTextPrimary}"/>
-                                <TextBlock Text="{Binding StopPromptMessage}" FontSize="12"
+                                <TextBlock Classes="body" Text="{Binding StopPromptMessage}"
                                            Foreground="{StaticResource BrushTextSecondary}" TextWrapping="Wrap"/>
                                 <Button Classes="primary" Content="Finish this card, then stop" Click="OnFinishCurrentCardClick"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
@@ -983,25 +1010,25 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Background="#F3FBEC" BorderBrush="{StaticResource BrushSuccess}" BorderThickness="1"
+                        <Border Background="{StaticResource BrushSuccessSurface}" BorderBrush="{StaticResource BrushSuccess}" BorderThickness="1"
                                 CornerRadius="8" Padding="12" IsVisible="{Binding HopperPausePromptVisible}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Empty the output hopper" FontWeight="SemiBold" FontSize="13"
+                                <TextBlock Classes="body" Text="Empty the output hopper" FontWeight="SemiBold"
                                            Foreground="{StaticResource BrushTextPrimary}"/>
-                                <TextBlock Text="{Binding HopperPauseMessage}" FontSize="12"
+                                <TextBlock Classes="body" Text="{Binding HopperPauseMessage}"
                                            Foreground="{StaticResource BrushTextSecondary}" TextWrapping="Wrap"/>
                                 <Button Classes="primary" Content="Resume printing" Click="OnResumeBatchClick"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
                             </StackPanel>
                         </Border>
 
-                        <Border Background="#FEF3F2" BorderBrush="#FECDCA" BorderThickness="1"
+                        <Border Background="{StaticResource BrushDangerSurface}" BorderBrush="{StaticResource BrushDangerBorder}" BorderThickness="1"
                                 CornerRadius="8" Padding="12" IsVisible="{Binding ErrorPromptVisible}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="{Binding ErrorPromptTitle}" FontWeight="SemiBold" FontSize="13"
+                                <TextBlock Classes="body" Text="{Binding ErrorPromptTitle}" FontWeight="SemiBold"
                                            Foreground="{StaticResource BrushDanger}"/>
-                                <TextBlock Text="{Binding ErrorPromptMessage}" FontSize="12"
-                                           Foreground="#7A271A" TextWrapping="Wrap"/>
+                                <TextBlock Classes="body" Text="{Binding ErrorPromptMessage}"
+                                           Foreground="{StaticResource BrushDangerText}" TextWrapping="Wrap"/>
                                 <Button Classes="primary" Content="It printed correctly, continue" Click="OnResumeBatchClick"
                                         IsVisible="{Binding IsErrorPromptOutcomeUnknown}"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
@@ -1025,13 +1052,13 @@
         <Border Grid.Row="2" Background="{StaticResource BrushSurface}"
                 BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="16,0">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Text="{Binding StatusText}" FontSize="12"
+                <TextBlock Classes="label" Grid.Column="0" Text="{Binding StatusText}"
                            Foreground="{StaticResource BrushTextSecondary}"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <PathIcon Data="{StaticResource IconPrinter}" Width="12" Height="12"
+                    <PathIcon Data="{StaticResource IconPrinter}"
                               Foreground="{StaticResource BrushTextMuted}"/>
-                    <TextBlock Text="{Binding SelectedPrinter}" FontSize="12"
+                    <TextBlock Classes="label" Text="{Binding SelectedPrinter}"
                                Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>

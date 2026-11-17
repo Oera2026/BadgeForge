@@ -480,3 +480,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local AI-assistant tooling and generated knowledge graph (not part of the app)
+graphify-out/
+.agents/
+.claude/
+AGENTS.md

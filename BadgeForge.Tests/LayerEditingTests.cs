@@ -16,7 +16,7 @@ public class LayerEditingTests
     [Fact]
     public void Layers_ListShowsTopmostLayerFirst()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
 
         Assert.Equal(vm.Template.Layers.OrderByDescending(l => l.ZIndex).Select(l => l.Id), vm.Layers.Select(l => l.Id));
     }
@@ -24,7 +24,7 @@ public class LayerEditingTests
     [Fact]
     public void ToggleVisibility_OfAnotherLayer_KeepsTheSelection()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var selected = LayerNamed(vm, "Full Name");
         vm.SelectedLayer = selected;
 
@@ -39,7 +39,7 @@ public class LayerEditingTests
     [Fact]
     public void ToggleVisibility_OfSelectedLayer_SelectsTheUpdatedCopy()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
 
         vm.ToggleLayerVisibility(vm.SelectedLayer);
@@ -51,7 +51,7 @@ public class LayerEditingTests
     [Fact]
     public void DeleteLayer_AnotherLayer_KeepsTheSelection()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var selected = LayerNamed(vm, "Full Name");
         vm.SelectedLayer = selected;
 
@@ -64,7 +64,7 @@ public class LayerEditingTests
     [Fact]
     public void DeleteLayer_TheSelectedLayer_SelectsTheLayerThatTookItsPlace()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var selected = LayerNamed(vm, "Full Name");
         int listIndex = vm.Layers.IndexOf(selected);
         vm.SelectedLayer = selected;
@@ -77,7 +77,7 @@ public class LayerEditingTests
     [Fact]
     public void MoveLayerStackOrder_LayersSharingAZIndex_CanStillBeReordered()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.Template.Layers.Clear();
         vm.Template.Layers.Add(new TextLayer { Name = "A" });
         vm.Template.Layers.Add(new TextLayer { Name = "B" });
@@ -95,7 +95,7 @@ public class LayerEditingTests
     [Fact]
     public void TextEditors_ReplaceTheLayerInsteadOfChangingItInPlace()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var original = (TextLayer)LayerNamed(vm, "Full Name");
         vm.SelectedLayer = original;
 
@@ -116,7 +116,7 @@ public class LayerEditingTests
     [Fact]
     public void TextContent_NewToken_AppearsInFieldMapping_AndTypedMappingSurvivesEditing()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Department");
 
         vm.TextContent = "{Department} {Site}";
@@ -134,7 +134,7 @@ public class LayerEditingTests
     [Fact]
     public void FontComboBoxes_NullFromAnUnmatchedItem_IsIgnored_AndCustomFamilyIsOffered()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var custom = new TextLayer { Name = "Custom", FontFamily = "Helvetica", FontWeight = "700", ZIndex = 99 };
         vm.Template.Layers.Add(custom);
         vm.RefreshLayersList();
@@ -152,7 +152,7 @@ public class LayerEditingTests
     [Fact]
     public void SetSelectedLayerBounds_ClampsToMinimumSize_AndLeavesLockedLayersAlone()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
 
         vm.SetSelectedLayerBounds(-3, 4, 0.5, 10);
@@ -168,7 +168,7 @@ public class LayerEditingTests
     [Fact]
     public void DuplicateLayer_OfALockedLayer_IsUnlocked()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var layer = LayerNamed(vm, "Full Name");
         vm.ToggleLayerLock(layer);
 
@@ -180,7 +180,7 @@ public class LayerEditingTests
     [Fact]
     public void TextColor_UnparseableStoredColor_ShowsBlack()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var layer = new TextLayer { Name = "Odd", ColorHex = "#GG0000", IsPureBlackKResin = false, ZIndex = 99 };
         vm.Template.Layers.Add(layer);
         vm.RefreshLayersList();

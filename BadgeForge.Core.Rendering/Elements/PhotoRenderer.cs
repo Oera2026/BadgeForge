@@ -153,8 +153,7 @@ public static class PhotoRenderer
     /// <summary>
     /// Renders a PhotoLayer into the specified destination rectangle on the SKCanvas.
     /// Handles token resolution, fallback image, EXIF rotation, crop mode, image adjustments and corner clipping.
-    /// When neither the record photo nor the layer's fallback image can be loaded, the frame is left empty, or holds
-    /// the <see cref="PhotoPlaceholder"/> silhouette when <paramref name="drawPlaceholderWhenMissing"/> is set.
+    /// When neither the record photo nor the layer's fallback image can be loaded, the frame is left empty.
     /// </summary>
     public static void Render(
         SKCanvas canvas,
@@ -162,8 +161,7 @@ public static class PhotoRenderer
         SKRect destRect,
         IReadOnlyDictionary<string, string> fieldData,
         double scaleFactorX,
-        double scaleFactorY,
-        bool drawPlaceholderWhenMissing = false)
+        double scaleFactorY)
     {
         // 1. Resolve photo path or base64 from fieldData
         string tokenName = TokenSyntax.NormalizeName(layer.SourceToken);
@@ -183,11 +181,6 @@ public static class PhotoRenderer
         float radiusPx = (float)(layer.BorderRadius * ((scaleFactorX + scaleFactorY) / 2.0));
         if (photo == null)
         {
-            if (drawPlaceholderWhenMissing)
-            {
-                PhotoPlaceholder.Draw(canvas, destRect, radiusPx, layer.Opacity);
-            }
-
             return;
         }
 

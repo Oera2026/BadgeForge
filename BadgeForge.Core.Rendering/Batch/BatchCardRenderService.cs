@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
 using BadgeForge.Core.Printing.Models;
 using BadgeForge.Core.Rendering.Elements;
+using BadgeForge.Core.Templates.Enums;
 using BadgeForge.Core.Templates.Layers;
 using BadgeForge.Core.Templates.Models;
+using SkiaSharp;
 
 namespace BadgeForge.Core.Rendering.Batch;
 
@@ -62,8 +64,7 @@ public sealed class BatchCardRenderService : IBatchCardRenderService
         var (canvasWidth, canvasHeight) = GetCanvasSize(snapshot.TargetFormat, options.Dpi);
         var renderer = new CardRenderer
         {
-            StrictLayerRendering = options.StrictLayerRendering,
-            DrawMissingPhotoPlaceholders = options.DrawMissingPhotoPlaceholders
+            StrictLayerRendering = options.StrictLayerRendering
         };
 
         int total = jobList.Count;
@@ -149,8 +150,23 @@ public sealed class BatchCardRenderService : IBatchCardRenderService
                 }
 
                 var bitmap = renderer.RenderAtSize(bound.Template, bound.RenderFields, canvasWidth, canvasHeight, ct);
-                warnings.AddRange(FindCutText(bound.Template, canvasWidth, canvasHeight, job.Label));
-                return new RenderedCard(index, job, bitmap, warnings);
+                SKBitmap? back = null;
+                try
+                {
+                    if (bound.Template.IsDoubleSided)
+                    {
+                        back = renderer.RenderAtSize(bound.Template, bound.RenderFields, canvasWidth, canvasHeight, ct, CardSide.Back);
+                    }
+
+                    warnings.AddRange(FindCutText(bound.Template, canvasWidth, canvasHeight, job.Label));
+                    return new RenderedCard(index, job, bitmap, warnings, back);
+                }
+                catch
+                {
+                    bitmap.Dispose();
+                    back?.Dispose();
+                    throw;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -171,7 +187,7 @@ public sealed class BatchCardRenderService : IBatchCardRenderService
         double scaleX = canvasWidth / bound.TargetFormat.WidthMm;
         double scaleY = canvasHeight / bound.TargetFormat.HeightMm;
 
-        foreach (var text in bound.Layers.OfType<TextLayer>().Where(l => l.IsVisible && l.Text.Length > 0))
+        foreach (var text in bound.Layers.OfType<TextLayer>().Where(l => bound.PrintsLayer(l) && l.Text.Length > 0))
         {
             var layout = TextRenderer.LayoutText(text, text.Text, (float)(text.Width * scaleX), (float)(text.Height * scaleY), scaleY);
             if (layout.WasTruncated)

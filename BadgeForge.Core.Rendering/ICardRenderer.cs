@@ -1,5 +1,6 @@
 using BadgeForge.Core.Printing.Interfaces;
 using BadgeForge.Core.Printing.Models;
+using BadgeForge.Core.Templates.Enums;
 using BadgeForge.Core.Templates.Models;
 using SkiaSharp;
 
@@ -23,7 +24,8 @@ public interface ICardRenderer
         TemplateDefinition template,
         IReadOnlyDictionary<string, string> fieldData,
         ICardPrinterDriver driver,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        CardSide side = CardSide.Front);
 
     /// <summary>
     /// Synchronous convenience overload for rendering a badge card against a driver.

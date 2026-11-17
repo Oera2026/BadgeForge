@@ -85,7 +85,7 @@ public class CropBoxTests
         string path = WritePng(400, 200);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var layer = await vm.AddImageLayerFromFileAsync(path);
             Assert.NotNull(layer);
 
@@ -121,7 +121,7 @@ public class CropBoxTests
         string path = WritePng(400, 200);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var layer = await vm.AddImageLayerFromFileAsync(path);
             vm.IsFillMode = true;
             vm.EndHistoryGesture();
@@ -158,7 +158,7 @@ public class CropBoxTests
         string path = WritePng(400, 200);
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var layer = await vm.AddImageLayerFromFileAsync(path);
             vm.ToggleLayerLock(vm.SelectedLayer!);
 

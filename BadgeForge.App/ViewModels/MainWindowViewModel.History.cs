@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Avalonia.Threading;
 using BadgeForge.Core.Templates.Enums;
 using BadgeForge.Core.Templates.Layers;
 using BadgeForge.Core.Templates.Models;
@@ -88,6 +89,28 @@ public partial class MainWindowViewModel
 
         _history.Record(CaptureSnapshot(label), mergeKey);
         RaiseHistoryChanged();
+        QueueUnsavedChangesCheck();
+    }
+
+    private bool _unsavedChangesCheckQueued;
+
+    /// <summary>
+    /// History is recorded just before an edit, so the "unsaved changes" dot is re-checked once the edit has run.
+    /// Coalesced: a drag records on every move, and the check serializes the whole template.
+    /// </summary>
+    private void QueueUnsavedChangesCheck()
+    {
+        if (_unsavedChangesCheckQueued)
+        {
+            return;
+        }
+
+        _unsavedChangesCheckQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _unsavedChangesCheckQueued = false;
+            OnPropertyChanged(nameof(HasUnsavedTemplateChanges));
+        }, DispatcherPriority.Background);
     }
 
     private bool RestoreSnapshot(TemplateSnapshot? snapshot, string verb)

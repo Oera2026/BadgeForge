@@ -15,7 +15,7 @@ public class MainWindowPrintingTests
     [Fact]
     public async Task Print_Proceeds_WhenFieldsOrPhotosAreMissing()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var ann = AddPerson(vm, "Ann", "Able", "E-1"); // no photo, and optional fields are empty
 
         await vm.StartBatchRunAsync();
@@ -33,7 +33,7 @@ public class MainWindowPrintingTests
         try
         {
             string photo = CreatePng(dir, "face.png");
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             foreach (var person in new[] { AddPerson(vm, "Ann", "Able", "E-1"), AddPerson(vm, "Bo", "Adams", "E-1") })
             {
                 Assert.True(await vm.SetPersonPhotoAsync(person, photo));
@@ -55,7 +55,7 @@ public class MainWindowPrintingTests
     [Fact]
     public async Task Print_Proceeds_WhenBarcodeTokenIsMissing()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var person = vm.AddPerson();
         person.Cells.Single(c => c.Token == "FirstName").Value = "Josh";
         person.Cells.Single(c => c.Token == "LastName").Value = "Name";
@@ -76,7 +76,7 @@ public class MainWindowPrintingTests
         try
         {
             string photo = CreatePng(dir, "face.png");
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var ann = AddPerson(vm, "Ann", "Able", "E-1");
             Assert.True(await vm.SetPersonPhotoAsync(ann, photo));
 
@@ -107,7 +107,7 @@ public class MainWindowPrintingTests
         try
         {
             string photo = CreatePng(dir, "face.png");
-            var vm = new MainWindowViewModel { IsPortrait = true };
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver()) { IsPortrait = true };
             var ann = AddPerson(vm, "Ann", "Able", "E-1");
             Assert.True(await vm.SetPersonPhotoAsync(ann, photo));
 
@@ -128,7 +128,7 @@ public class MainWindowPrintingTests
     [Fact]
     public void CardSizeAndOrientation_AreChosenSeparately()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
 
         vm.IsPortrait = true;
         Assert.Equal(CardFormat.CR80, vm.SelectedCardSize);
@@ -145,7 +145,7 @@ public class MainWindowPrintingTests
     [Fact]
     public void NewTemplate_KeepsThePeopleList_AndClearsUnsavedChanges()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         AddPerson(vm, "Ann", "Able", "E-1");
         vm.AddTextLayer();
         Assert.True(vm.HasUnsavedTemplateChanges);
@@ -159,7 +159,7 @@ public class MainWindowPrintingTests
     [Fact]
     public void NewBlankTemplate_CreatesEmptyLayers_AndSetsFormat()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         AddPerson(vm, "Ann", "Able", "E-1");
         Assert.NotEmpty(vm.Layers);
 
@@ -174,7 +174,7 @@ public class MainWindowPrintingTests
     [Fact]
     public void SelectedOrientation_DropdownTogglesOrientation()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         Assert.Equal("Landscape", vm.SelectedOrientation);
         Assert.False(vm.IsPortrait);
 
@@ -190,7 +190,7 @@ public class MainWindowPrintingTests
     [Fact]
     public void ApplyCropAspectRatio_UpdatesLayerDimensionsAndAspectFill()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var photo = vm.Layers.OfType<BadgeForge.Core.Templates.Layers.PhotoLayer>().First();
         vm.SelectedLayer = photo;
 

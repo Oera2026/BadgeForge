@@ -53,11 +53,6 @@ public class ColumnMappingItem : ViewModelBase
 /// </summary>
 public partial class MainWindowViewModel : ViewModelBase
 {
-    /// <summary>
-    /// Printer list entry for the built-in printer simulator.
-    /// </summary>
-    public const string MockPrinterName = "Mock IDP SMART-31 DTC";
-
     private readonly JsonTemplateStorage _templateStorage = new();
     private readonly CardRenderer _renderer = new();
     private readonly CardRenderer _printRenderer = new() { StrictLayerRendering = true };
@@ -80,7 +75,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _statusText = "Ready";
 
     private ICardPrinterDriver _activeDriver;
-    private string _selectedPrinter = MockPrinterName;
+    private string _selectedPrinter;
     private BatchExecutionState _batchState = BatchExecutionState.Idle;
     private bool _hopperPausePromptVisible;
     private string _hopperPauseMessage = string.Empty;
@@ -112,7 +107,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private PreviewRequest? _pendingPreview;
     private bool _previewWorkerRunning;
 
-    private sealed record PreviewRequest(long Revision, TemplateDefinition Template, IReadOnlyDictionary<string, string> FieldData);
+    private sealed record PreviewRequest(long Revision, TemplateDefinition Template, IReadOnlyDictionary<string, string> FieldData, CardSide Side);
 
     private bool _isReplacingLayer;
     private bool _isRepositioningImage;
@@ -168,8 +163,105 @@ public partial class MainWindowViewModel : ViewModelBase
     public TemplateDefinition Template
     {
         get => _template;
-        private set => SetProperty(ref _template, value);
+        private set
+        {
+            if (SetProperty(ref _template, value))
+            {
+                OnPropertyChanged(nameof(HasUnsavedTemplateChanges));
+            }
+        }
     }
+
+    private CardSide _activeSide = CardSide.Front;
+
+    /// <summary>The card face the designer is showing and editing.</summary>
+    public CardSide ActiveSide => _activeSide;
+
+    /// <summary>The layers on the face being edited; the canvas draws overlays and hit-tests against these only.</summary>
+    public IEnumerable<TemplateLayer> ActiveSideLayers => Template.Layers.Where(l => l.Side == _activeSide);
+
+    public bool IsEditingBack
+    {
+        get => _activeSide == CardSide.Back;
+        set
+        {
+            // Clicking the face already showing un-checks its button; announce the value again so it re-checks
+            if (value)
+            {
+                SetActiveSide(CardSide.Back);
+            }
+            else
+            {
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool IsEditingFront
+    {
+        get => _activeSide == CardSide.Front;
+        set
+        {
+            if (value)
+            {
+                SetActiveSide(CardSide.Front);
+            }
+            else
+            {
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>Whether each badge is printed on both sides. Needs a printer with a card flipper.</summary>
+    public bool IsDoubleSided
+    {
+        get => Template.IsDoubleSided;
+        set
+        {
+            if (Template.IsDoubleSided == value)
+            {
+                return;
+            }
+
+            RecordHistory(value ? "turning on double-sided printing" : "turning off double-sided printing");
+            Template = Template with { IsDoubleSided = value };
+            if (!value)
+            {
+                SetActiveSide(CardSide.Front);
+            }
+
+            OnPropertyChanged();
+            RefreshPrinterCompatibility();
+            RequestLivePreviewUpdate();
+        }
+    }
+
+    private void SetActiveSide(CardSide side)
+    {
+        if (side == CardSide.Back && !Template.IsDoubleSided)
+        {
+            return;
+        }
+
+        if (_activeSide == side)
+        {
+            return;
+        }
+
+        // Text being typed belongs to the face that is going away
+        CommitInlineTextEdit();
+        SelectedLayer = null;
+        _activeSide = side;
+        OnPropertyChanged(nameof(ActiveSide));
+        OnPropertyChanged(nameof(IsEditingBack));
+        OnPropertyChanged(nameof(IsEditingFront));
+        RefreshLayersList();
+        RequestLivePreviewUpdate();
+    }
+
+    /// <summary>The file the template was last opened from or saved to; null for a template that has no file yet.</summary>
+    public string? TemplateFilePath { get; private set; }
 
     public TemplateLayer? SelectedLayer
     {
@@ -833,7 +925,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool HasRecords => _records.Count > 0;
     public string RecordPaginationText => _records.Count > 0
         ? $"Record {CurrentRecordIndex + 1} of {_records.Count}"
-        : "Sample data — load a CSV to preview records";
+        : "No records — add people or load a CSV";
 
     public bool CanGoPrevious => CurrentRecordIndex > 0;
     public bool CanGoNext => _records.Count > 0 && CurrentRecordIndex < _records.Count - 1;
@@ -987,9 +1079,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var previousDriver = _activeDriver;
             if (SetProperty(ref _selectedPrinter, value))
             {
-                _activeDriver = value == MockPrinterName
-                    ? new MockCardPrinterDriver()
-                    : new IdpSmart31CardPrinterDriver(value);
+                _activeDriver = new IdpSmart31CardPrinterDriver(value);
                 previousDriver.Dispose();
                 OnPropertyChanged(nameof(ActiveDriver));
                 RefreshPrinterCompatibility();
@@ -1078,15 +1168,32 @@ public partial class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _batchProgressPercent, value);
     }
 
-    public MainWindowViewModel()
+    /// <param name="driver">
+    /// The printer to use. Normally left out: the app then picks an installed printer (preferring an IDP SMART-31)
+    /// and reports it as unavailable if there is none. Tests pass a stand-in driver here.
+    /// </param>
+    public MainWindowViewModel(ICardPrinterDriver? driver = null)
     {
-        _activeDriver = new MockCardPrinterDriver();
-
-        // The simulator, then the printers actually installed (Windows only)
-        AvailablePrinters.Add(MockPrinterName);
         foreach (string printerName in IdpSmart31CardPrinterDriver.GetInstalledPrinterNames())
         {
             AvailablePrinters.Add(printerName);
+        }
+
+        if (driver != null)
+        {
+            _activeDriver = driver;
+            _selectedPrinter = driver.TargetPrinterName ?? driver.DisplayName;
+            if (!AvailablePrinters.Contains(_selectedPrinter))
+            {
+                AvailablePrinters.Add(_selectedPrinter);
+            }
+        }
+        else
+        {
+            _selectedPrinter = AvailablePrinters.FirstOrDefault(n => n.Contains("SMART", StringComparison.OrdinalIgnoreCase))
+                ?? AvailablePrinters.FirstOrDefault()
+                ?? IdpSmart31CardPrinterDriver.DefaultPrinterName;
+            _activeDriver = new IdpSmart31CardPrinterDriver(_selectedPrinter);
         }
 
         AvailableFormats.Add(CardFormat.CR80);
@@ -1107,22 +1214,6 @@ public partial class MainWindowViewModel : ViewModelBase
             TargetFormat = CardFormat.CR80,
             Layers = new List<TemplateLayer>
             {
-                new TextLayer
-                {
-                    Name = "Company Header",
-                    Text = "APEX SYSTEMS • SECURE ACCESS",
-                    FontFamily = "Arial",
-                    FontSize = 9.0,
-                    FontWeight = "Bold",
-                    ColorHex = "#7A918D", // Grey Olive
-                    IsPureBlackKResin = false,
-                    Alignment = TextAlignment.Center,
-                    X = 5.0,
-                    Y = 4.0,
-                    Width = 75.6,
-                    Height = 6.0,
-                    ZIndex = 1
-                },
                 new PhotoLayer
                 {
                     Name = "Portrait Photo",
@@ -1170,7 +1261,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 new BarcodeLayer
                 {
                     Name = "QR Code",
-                    ContentToken = "https://badgeforge.io/v/{{EmployeeId}}",
+                    ContentToken = "{{EmployeeId}}",
                     Symbology = BarcodeSymbology.QrCode,
                     IsPureBlackKResin = true,
                     X = 64.0,
@@ -1214,6 +1305,8 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshLayersList();
         SelectedLayer = Layers.FirstOrDefault();
         _savedTemplateJson = _templateStorage.Serialize(template);
+        TemplateFilePath = null;
+        OnPropertyChanged(nameof(HasUnsavedTemplateChanges));
 
         // Undoing across a new or opened file would resurrect layers from a design the user has closed
         _history.Clear();
@@ -1275,6 +1368,19 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     public void RefreshLayersList()
     {
+        // Undo, or opening a single-sided template, can leave the designer looking at a back that no longer exists
+        if (_activeSide == CardSide.Back && !Template.IsDoubleSided)
+        {
+            _activeSide = CardSide.Front;
+            OnPropertyChanged(nameof(ActiveSide));
+            OnPropertyChanged(nameof(IsEditingBack));
+            OnPropertyChanged(nameof(IsEditingFront));
+            _selectedLayer = null;
+            RequestLivePreviewUpdate();
+        }
+
+        OnPropertyChanged(nameof(IsDoubleSided));
+
         var selected = _selectedLayer;
         bool wasReplacing = _isReplacingLayer;
         _isReplacingLayer = true;
@@ -1282,6 +1388,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             SyncLayersList(Template.Layers
                 .Select((layer, index) => (layer, index))
+                .Where(t => t.layer.Side == _activeSide)
                 .OrderByDescending(t => t.layer.ZIndex)
                 .ThenByDescending(t => t.index)
                 .Select(t => t.layer)
@@ -1446,18 +1553,14 @@ public partial class MainWindowViewModel : ViewModelBase
             return GetRecordFieldData(_records[CurrentRecordIndex]);
         }
 
-        // Clean default sample preview data when no CSV loaded
-        var sample = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        // No people yet: show each field's own name ("{{FirstName}}") so the layout is readable without inventing data
+        var markers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string token in Template?.GetAllReferencedTokens() ?? (IEnumerable<string>)Array.Empty<string>())
         {
-            ["FirstName"] = "ALEXANDER",
-            ["LastName"] = "CROSS",
-            ["JobTitle"] = "SYSTEMS ENGINEER",
-            ["Department"] = "INFRASTRUCTURE & DEV",
-            ["EmployeeId"] = "SEC-4091-AC",
-            ["ExpiryDate"] = "2027-12-31"
-        };
-        CardholderMapper.AddStandardTokens(sample, includePhoto: false);
-        return sample;
+            markers[token] = "{{" + token + "}}";
+        }
+
+        return markers;
     }
 
     /// <summary>
@@ -1732,7 +1835,8 @@ public partial class MainWindowViewModel : ViewModelBase
             Y = y,
             Width = 40.0,
             Height = 8.0,
-            ZIndex = nextZ
+            ZIndex = nextZ,
+            Side = ActiveSide
         };
 
         Template.Layers.Add(layer);
@@ -1755,7 +1859,8 @@ public partial class MainWindowViewModel : ViewModelBase
             Y = y,
             Width = 25.0,
             Height = 35.0,
-            ZIndex = nextZ
+            ZIndex = nextZ,
+            Side = ActiveSide
         };
 
         Template.Layers.Add(layer);
@@ -1779,7 +1884,8 @@ public partial class MainWindowViewModel : ViewModelBase
             Y = y,
             Width = symbology == BarcodeSymbology.QrCode ? 18.0 : 45.0,
             Height = symbology == BarcodeSymbology.QrCode ? 18.0 : 8.0,
-            ZIndex = nextZ
+            ZIndex = nextZ,
+            Side = ActiveSide
         };
 
         Template.Layers.Add(layer);
@@ -1800,7 +1906,8 @@ public partial class MainWindowViewModel : ViewModelBase
             Y = y,
             Width = 20.0,
             Height = 20.0,
-            ZIndex = nextZ
+            ZIndex = nextZ,
+            Side = ActiveSide
         };
 
         Template.Layers.Add(layer);
@@ -2182,7 +2289,8 @@ public partial class MainWindowViewModel : ViewModelBase
             Y = y,
             Width = width,
             Height = height,
-            ZIndex = nextZ
+            ZIndex = nextZ,
+            Side = ActiveSide
         };
 
         Template.Layers.Add(layer);
@@ -2640,7 +2748,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ImageThumbnail] {ex.Message}");
+            Trace.WriteLine($"[ImageThumbnail] {ex.Message}");
             return null;
         }
     }
@@ -2652,13 +2760,59 @@ public partial class MainWindowViewModel : ViewModelBase
         var template = Template;
         await _templateStorage.SaveAsync(template, filePath);
         _savedTemplateJson = _templateStorage.Serialize(template);
+        TemplateFilePath = filePath;
+        OnPropertyChanged(nameof(HasUnsavedTemplateChanges));
         StatusText = $"Template saved to {Path.GetFileName(filePath)}";
+    }
+
+    // --- My Templates library ---
+
+    /// <summary>Where templates saved to "My Templates" live: one JSON file each, so they can be copied or backed up.</summary>
+    public static string TemplateLibraryFolder { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BadgeForge", "Templates");
+
+    /// <summary>The saved templates, by name, in alphabetical order.</summary>
+    public static IReadOnlyList<(string Name, string Path)> ListLibraryTemplates()
+    {
+        if (!Directory.Exists(TemplateLibraryFolder))
+        {
+            return Array.Empty<(string, string)>();
+        }
+
+        return Directory.EnumerateFiles(TemplateLibraryFolder, "*.json")
+            .Select(file => (Name: Path.GetFileNameWithoutExtension(file), Path: file))
+            .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Saves the design to the library under <paramref name="name"/> and keeps editing that file. Saving again under
+    /// the name of the library file already open updates it; a name another template already uses gets a number.
+    /// </summary>
+    public async Task SaveToLibraryAsync(string name, Func<string, string> toFileName)
+    {
+        name = name.Trim();
+        Directory.CreateDirectory(TemplateLibraryFolder);
+
+        string baseName = toFileName(name);
+        string path = Path.Combine(TemplateLibraryFolder, baseName + ".json");
+        bool isOpenFile = TemplateFilePath != null &&
+            string.Equals(Path.GetFullPath(TemplateFilePath), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase);
+        for (int n = 2; !isOpenFile && File.Exists(path); n++)
+        {
+            path = Path.Combine(TemplateLibraryFolder, $"{baseName} ({n}).json");
+        }
+
+        Template = Template with { Name = name, ModifiedAtUtc = DateTime.UtcNow };
+        await SaveTemplateAsync(path);
+        StatusText = $"Saved '{name}' to My Templates";
     }
 
     public async Task LoadTemplateAsync(string filePath)
     {
         var loaded = await _templateStorage.LoadAsync(filePath);
         ApplyTemplate(loaded);
+        TemplateFilePath = filePath;
         StatusText = $"Loaded template '{loaded.Name}'";
     }
 
@@ -3133,10 +3287,26 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // --- Live Preview Rendering (Off-UI-Thread) ---
 
+    private int _previewTargetWidthPx;
+
+    /// <summary>
+    /// Pixel width the designer shows the card at. The preview is rendered at least this wide so zooming in
+    /// stays sharp; re-renders only when the (bucketed) size changes.
+    /// </summary>
+    public void SetPreviewTargetWidth(int widthPx)
+    {
+        // Round up to 256px steps so a smooth zoom doesn't trigger a render per frame
+        int bucket = Math.Clamp((widthPx + 255) / 256 * 256, 0, 4096);
+        if (Interlocked.Exchange(ref _previewTargetWidthPx, bucket) != bucket)
+        {
+            RequestLivePreviewUpdate();
+        }
+    }
+
     public void RequestLivePreviewUpdate()
     {
         // Rendered on a worker thread, so it reads its own copy of the layer list while the designer keeps editing
-        var request = new PreviewRequest(Interlocked.Increment(ref _renderRevision), SnapshotPreviewTemplate(), GetActiveRecordFieldData());
+        var request = new PreviewRequest(Interlocked.Increment(ref _renderRevision), SnapshotPreviewTemplate(), GetActiveRecordFieldData(), _activeSide);
 
         // Dragging or typing asks for a preview on every event; render one at a time and skip straight to the newest
         // request instead of starting a full-resolution render for each
@@ -3184,7 +3354,7 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 // Previews don't need the printer, so the design stays visible even if the printer can't print it
-                using var skBitmap = _renderer.RenderPreview(template, fieldData);
+                using var skBitmap = _renderer.RenderPreview(template, fieldData, Volatile.Read(ref _previewTargetWidthPx), request.Side);
 
                 // Only apply if this is still the newest render request
                 if (Interlocked.Read(ref _renderRevision) != revision)
@@ -3192,11 +3362,15 @@ public partial class MainWindowViewModel : ViewModelBase
                     return;
                 }
 
-                // Marshal SKBitmap to Avalonia Bitmap via memory stream
-                using var image = SKImage.FromBitmap(skBitmap);
-                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                using var memStream = new MemoryStream(data.ToArray());
-                var avaloniaBitmap = new AvaloniaBitmap(memStream);
+                // Copy the pixels straight across (both are BGRA premultiplied): a PNG encode/decode round trip
+                // per frame was most of the preview's cost, more so at zoomed-in sizes
+                var avaloniaBitmap = new AvaloniaBitmap(
+                    Avalonia.Platform.PixelFormat.Bgra8888,
+                    Avalonia.Platform.AlphaFormat.Premul,
+                    skBitmap.GetPixels(),
+                    new Avalonia.PixelSize(skBitmap.Width, skBitmap.Height),
+                    new Avalonia.Vector(96, 96),
+                    skBitmap.RowBytes);
 
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -3214,7 +3388,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[LivePreview] Error rendering card: {ex}");
+                Trace.WriteLine($"[LivePreview] Error rendering card: {ex}");
                 Dispatcher.UIThread.Post(() =>
                 {
                     if (Interlocked.Read(ref _renderRevision) == revision)
@@ -3455,6 +3629,9 @@ public partial class MainWindowViewModel : ViewModelBase
                 Format = template.TargetFormat,
                 // Rendered as the engine reaches each card, so a long list never holds every badge image in memory
                 RenderFrontAsync = token => RenderCardPngAsync(template, job.Fields, driver, token),
+                RenderBackAsync = template.IsDoubleSided
+                    ? token => RenderCardPngAsync(template, job.Fields, driver, token, CardSide.Back)
+                    : null,
                 Metadata = new Dictionary<string, string>
                 {
                     ["RecordId"] = job.RecordId,
@@ -3511,7 +3688,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // 1. The printer is there and takes this card size
         var capabilities = await driver.ProbeCapabilitiesAsync(driver.TargetPrinterName ?? string.Empty, ct);
         string printerName = driver.TargetPrinterName ?? driver.DisplayName;
-        if (capabilities.IsSimulated)
+        if (capabilities.IsUnavailable)
         {
             return new PrintCheckResult($"{printerName} isn't available: {DescribeUnavailable(capabilities)}.", null);
         }
@@ -3519,6 +3696,13 @@ public partial class MainWindowViewModel : ViewModelBase
         if (!capabilities.ValidateCompatibility(template.TargetFormat, out string mismatch))
         {
             return new PrintCheckResult($"{printerName} can't print {template.TargetFormat.Name} cards. {mismatch}", null);
+        }
+
+        if (template.IsDoubleSided && !capabilities.SupportsDuplex)
+        {
+            return new PrintCheckResult(
+                $"This badge is set to print on both sides, but {printerName} doesn't report a card flipper (duplex unit). " +
+                "Turn off \"Print both sides\", or check that the flipper is installed and enabled in the printer driver.", null);
         }
 
         // 2. Pre-flight: no set requirements block printing; missing data or duplicates are reported as warnings
@@ -3561,11 +3745,12 @@ public partial class MainWindowViewModel : ViewModelBase
         TemplateDefinition template,
         IReadOnlyDictionary<string, string> fields,
         ICardPrinterDriver driver,
-        CancellationToken ct)
+        CancellationToken ct,
+        CardSide side = CardSide.Front)
     {
         return Task.Run(async () =>
         {
-            using var bitmap = await _printRenderer.RenderCardAsync(template, fields, driver, ct);
+            using var bitmap = await _printRenderer.RenderCardAsync(template, fields, driver, ct, side);
             using var image = SKImage.FromBitmap(bitmap);
             using var png = image.Encode(SKEncodedImageFormat.Png, 100);
             return png.ToArray();
@@ -3598,7 +3783,7 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 var capabilities = await driver.ProbeCapabilitiesAsync(driver.TargetPrinterName ?? printerName);
-                if (capabilities.IsSimulated)
+                if (capabilities.IsUnavailable)
                 {
                     message = $"{printerName} isn't available, so badges can't be printed: {DescribeUnavailable(capabilities)}.";
                 }

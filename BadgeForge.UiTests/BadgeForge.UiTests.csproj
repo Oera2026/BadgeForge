@@ -30,4 +30,13 @@
     <ProjectReference Include="..\BadgeForge.App\BadgeForge.App.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="BadgeForge.Core.Printing.Drivers" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\BadgeForge.Tests\MockCardPrinterDriver.cs" Link="MockCardPrinterDriver.cs" />
+    <Compile Include="..\BadgeForge.Tests\MockStatusMonitor.cs" Link="MockStatusMonitor.cs" />
+  </ItemGroup>
+
 </Project>

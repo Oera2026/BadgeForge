@@ -74,6 +74,11 @@ public record BatchCardItem
     public Func<CancellationToken, Task<byte[]>>? RenderFrontAsync { get; init; }
 
     /// <summary>
+    /// Renders the back image (encoded PNG) when the engine reaches this card. Leave null for a single-sided card.
+    /// </summary>
+    public Func<CancellationToken, Task<byte[]>>? RenderBackAsync { get; init; }
+
+    /// <summary>
     /// Converts this batch card item into a driver-ready CardPrintJob, rendering the front on demand if needed.
     /// </summary>
     public async Task<CardPrintJob> ToPrintJobAsync(string? customJobId = null, CancellationToken ct = default)
@@ -82,6 +87,11 @@ public record BatchCardItem
         if (job.FrontPixelBuffer.Length == 0 && RenderFrontAsync != null)
         {
             job = job with { FrontPixelBuffer = await RenderFrontAsync(ct) };
+        }
+
+        if (job.BackPixelBuffer is null or { Length: 0 } && RenderBackAsync != null)
+        {
+            job = job with { BackPixelBuffer = await RenderBackAsync(ct) };
         }
 
         return job;
@@ -139,8 +149,7 @@ public record BatchRecordCheckpoint
 }
 
 /// <summary>
-/// Root checkpoint object persisted to disk during batch execution.
-/// Enables seamless crash-recovery and resumption.
+/// Root checkpoint object persisted to disk during batch execution, so a crashed run can resume.
 /// </summary>
 public record BatchCheckpoint
 {

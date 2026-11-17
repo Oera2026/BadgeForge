@@ -1,6 +1,7 @@
 using BadgeForge.Core.Printing.Interfaces;
 using BadgeForge.Core.Printing.Models;
 using BadgeForge.Core.Rendering.Elements;
+using BadgeForge.Core.Templates.Enums;
 using BadgeForge.Core.Templates.Layers;
 using BadgeForge.Core.Templates.Models;
 using SkiaSharp;
@@ -22,12 +23,6 @@ public class CardRenderer : ICardRenderer
     public bool StrictLayerRendering { get; init; }
 
     /// <summary>
-    /// When true, a photo frame whose record has no loadable photo (and no fallback image) prints a neutral
-    /// silhouette instead of being left blank. Used by batch export so a missing photo is obvious on the card.
-    /// </summary>
-    public bool DrawMissingPhotoPlaceholders { get; init; }
-
-    /// <summary>
     /// Largest difference allowed between a requested canvas's aspect ratio and the card's before rendering refuses
     /// to stretch the design onto it.
     /// </summary>
@@ -38,7 +33,8 @@ public class CardRenderer : ICardRenderer
         TemplateDefinition template,
         IReadOnlyDictionary<string, string> fieldData,
         ICardPrinterDriver driver,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        CardSide side = CardSide.Front)
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(fieldData);
@@ -55,7 +51,7 @@ public class CardRenderer : ICardRenderer
         // 3. Allocate canvas with exact driver-reported pixel dimensions, turned to the card's orientation
         var (canvasWidth, canvasHeight) = capabilities.GetCanvasSizeFor(template.TargetFormat);
 
-        return Render(template, fieldData, canvasWidth, canvasHeight, StrictLayerRendering, DrawMissingPhotoPlaceholders, ct);
+        return Render(template, fieldData, canvasWidth, canvasHeight, StrictLayerRendering, ct, side);
     }
 
     /// <summary>
@@ -68,7 +64,8 @@ public class CardRenderer : ICardRenderer
         IReadOnlyDictionary<string, string> fieldData,
         int canvasWidth,
         int canvasHeight,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        CardSide side = CardSide.Front)
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(fieldData);
@@ -86,7 +83,7 @@ public class CardRenderer : ICardRenderer
             }
         }
 
-        return Render(template, fieldData, canvasWidth, canvasHeight, StrictLayerRendering, DrawMissingPhotoPlaceholders, ct);
+        return Render(template, fieldData, canvasWidth, canvasHeight, StrictLayerRendering, ct, side);
     }
 
     /// <inheritdoc/>
@@ -102,12 +99,21 @@ public class CardRenderer : ICardRenderer
 
     /// <inheritdoc/>
     public SKBitmap RenderPreview(TemplateDefinition template, IReadOnlyDictionary<string, string> fieldData)
+        => RenderPreview(template, fieldData, 0);
+
+    /// <summary>
+    /// Live preview at a requested pixel width (never below the card's native size), so a zoomed-in designer
+    /// view is drawn sharp instead of stretching the native bitmap. Geometry is in mm, so any size is valid.
+    /// </summary>
+    public SKBitmap RenderPreview(TemplateDefinition template, IReadOnlyDictionary<string, string> fieldData, int targetWidthPixels, CardSide side = CardSide.Front)
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(fieldData);
 
         var format = template.TargetFormat;
-        return Render(template, fieldData, format.WidthPixels, format.HeightPixels, strict: false, DrawMissingPhotoPlaceholders, CancellationToken.None);
+        int width = Math.Max(format.WidthPixels, targetWidthPixels);
+        int height = (int)Math.Round(width * (double)format.HeightPixels / format.WidthPixels);
+        return Render(template, fieldData, width, height, strict: false, CancellationToken.None, side);
     }
 
     /// <inheritdoc/>
@@ -125,7 +131,7 @@ public class CardRenderer : ICardRenderer
         double scaleFactorY = canvasHeight / template.TargetFormat.HeightMm;
 
         var problems = new List<string>();
-        foreach (var barcode in template.Layers.OfType<BarcodeLayer>().Where(l => l.IsVisible))
+        foreach (var barcode in template.Layers.OfType<BarcodeLayer>().Where(template.PrintsLayer))
         {
             var destRect = GetLayerRect(barcode, scaleFactorX, scaleFactorY);
             if (BarcodeRenderer.FindPrintProblem(barcode, destRect, fieldData, scaleFactorX, scaleFactorY) is { } problem)
@@ -143,8 +149,8 @@ public class CardRenderer : ICardRenderer
         int canvasWidth,
         int canvasHeight,
         bool strict,
-        bool photoPlaceholders,
-        CancellationToken ct)
+        CancellationToken ct,
+        CardSide side = CardSide.Front)
     {
         if (canvasWidth <= 0 || canvasHeight <= 0)
         {
@@ -167,7 +173,7 @@ public class CardRenderer : ICardRenderer
 
             // 6. Render layers sorted by visual stacking order (ZIndex ascending)
             var orderedLayers = template.Layers
-                .Where(l => l.IsVisible)
+                .Where(l => l.IsVisible && l.Side == side)
                 .OrderBy(l => l.ZIndex)
                 .ToList();
 
@@ -176,7 +182,7 @@ public class CardRenderer : ICardRenderer
                 ct.ThrowIfCancellationRequested();
 
                 var destRect = GetLayerRect(layer, scaleFactorX, scaleFactorY);
-                RenderLayer(canvas, layer, destRect, fieldData, scaleFactorX, scaleFactorY, strict, photoPlaceholders);
+                RenderLayer(canvas, layer, destRect, fieldData, scaleFactorX, scaleFactorY, strict);
             }
 
             return bitmap;
@@ -204,8 +210,7 @@ public class CardRenderer : ICardRenderer
         IReadOnlyDictionary<string, string> fieldData,
         double scaleFactorX,
         double scaleFactorY,
-        bool strict,
-        bool photoPlaceholders)
+        bool strict)
     {
         switch (layer)
         {
@@ -214,7 +219,7 @@ public class CardRenderer : ICardRenderer
                 break;
 
             case PhotoLayer photoLayer:
-                PhotoRenderer.Render(canvas, photoLayer, destRect, fieldData, scaleFactorX, scaleFactorY, photoPlaceholders);
+                PhotoRenderer.Render(canvas, photoLayer, destRect, fieldData, scaleFactorX, scaleFactorY);
                 break;
 
             case BarcodeLayer barcodeLayer:

@@ -6,8 +6,7 @@ using BadgeForge.Core.Printing.Drivers;
 namespace BadgeForge.Core.Printing.Batch;
 
 /// <summary>
-/// Handles unique job name generation (GUID + record ID) and spooler job correlation
-/// with retry loops, timeout handling, and diagnostic logging.
+/// Generates unique job names (GUID + record ID) and matches them to spooler jobs.
 /// </summary>
 public class SpoolerJobCorrelator : ISpoolerJobCorrelator
 {

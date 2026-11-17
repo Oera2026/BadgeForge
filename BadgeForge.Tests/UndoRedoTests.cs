@@ -20,7 +20,7 @@ public class UndoRedoTests
     [Fact]
     public void NewViewModel_HasNothingToUndoOrRedo()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
 
         Assert.False(vm.CanUndo);
         Assert.False(vm.CanRedo);
@@ -32,7 +32,7 @@ public class UndoRedoTests
     [Fact]
     public void Undo_AfterMovingALayer_PutsItBack_AndRedoMovesItAgain()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
         double startX = vm.SelectedLayer!.X;
         double startY = vm.SelectedLayer.Y;
@@ -52,7 +52,7 @@ public class UndoRedoTests
     [Fact]
     public void Undo_AfterDeletingALayer_BringsItBackWithTheSameIdAndSelection()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var target = LayerNamed(vm, "QR Code");
         vm.SelectedLayer = target;
         int countBefore = vm.Template.Layers.Count;
@@ -73,7 +73,7 @@ public class UndoRedoTests
     [Fact]
     public void Undo_AfterAddingALayer_RemovesItAgain()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         int countBefore = vm.Template.Layers.Count;
 
         vm.AddTextLayer(5, 5, "Hello", "Greeting");
@@ -88,7 +88,7 @@ public class UndoRedoTests
     [Fact]
     public void Undo_AfterEditingText_RestoresTheOldText()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
         string original = ((TextLayer)vm.SelectedLayer!).Text;
 
@@ -103,7 +103,7 @@ public class UndoRedoTests
     [Fact]
     public void Undo_AfterChangingTheCardSize_RestoresTheOldFormat()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var original = vm.ActiveFormat;
 
         vm.ActiveFormat = CardFormat.CR79;
@@ -117,7 +117,7 @@ public class UndoRedoTests
     [Fact]
     public void ADragIsOneUndoStep_AndTheNextDragIsAnother()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
         double startX = vm.SelectedLayer!.X;
 
@@ -142,7 +142,7 @@ public class UndoRedoTests
     [Fact]
     public void EditingAfterAnUndo_DropsWhatCouldHaveBeenRedone()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
 
         vm.SetSelectedLayerPosition(20, 20);
@@ -158,7 +158,7 @@ public class UndoRedoTests
     [Fact]
     public void StartingANewTemplate_ClearsTheHistory()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
         vm.SetSelectedLayerPosition(20, 20);
         Assert.True(vm.CanUndo);
@@ -173,7 +173,7 @@ public class UndoRedoTests
     [Fact]
     public void Undo_DoesNotTouchThePeopleList()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var person = vm.AddPerson();
         person.Cells[0].Value = "Ada Lovelace";
 
@@ -188,7 +188,7 @@ public class UndoRedoTests
     [Fact]
     public void UndoTooltip_NamesTheEditThatWouldBeReversed()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.SelectedLayer = LayerNamed(vm, "Full Name");
 
         vm.SetSelectedLayerPosition(20, 20);

@@ -127,7 +127,7 @@ public class DesignerEditingUiTests
         var h = Open();
         try
         {
-            var layer = (TextLayer)LayerNamed(h.Vm, "Company Header");
+            var layer = (TextLayer)LayerNamed(h.Vm, "Full Name");
             h.Vm.SelectedLayer = layer;
             int before = h.Vm.Template.Layers.Count;
 
@@ -268,7 +268,7 @@ public class DesignerEditingUiTests
         var h = Open();
         try
         {
-            var layer = (TextLayer)LayerNamed(h.Vm, "Company Header");
+            var layer = (TextLayer)LayerNamed(h.Vm, "Full Name");
             h.Vm.SelectedLayer = layer;
             double x = layer.X;
 

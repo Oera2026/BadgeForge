@@ -31,7 +31,7 @@ public class ColorDropperUiTests
     /// <summary>A canvas showing a card that is one colour on the left half and another on the right.</summary>
     private static (Window Window, InteractiveBadgeCanvas Canvas) OpenTwoColourCard()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var canvas = new InteractiveBadgeCanvas
         {
             DataContext = vm,

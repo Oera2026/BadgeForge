@@ -33,4 +33,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="BadgeForge.Core.Printing.Drivers" />
+  </ItemGroup>
+
 </Project>

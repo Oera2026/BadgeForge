@@ -22,7 +22,7 @@ public class PrintStopUiTests
 
     private static Harness Open(int people, int holdCardAtIndex)
     {
-        var window = new MainWindow { Width = 1400, Height = 900 };
+        var window = new MainWindow(new MockCardPrinterDriver()) { Width = 1400, Height = 900 };
         var vm = (MainWindowViewModel)window.DataContext!;
         window.Show();
         Dispatcher.UIThread.RunJobs();

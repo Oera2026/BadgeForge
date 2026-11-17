@@ -95,7 +95,7 @@ public class PeopleColumnOrderTests
     [Fact]
     public void MovePeopleColumn_MovesTheHeadingAndEveryRowTogether()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var person = AddPerson(vm, ("FirstName", "Ada"), ("LastName", "Lovelace"), ("Department", "Analytics"));
         var last = vm.PeopleFieldColumns.Single(c => c.Token == "LastName");
 
@@ -113,7 +113,7 @@ public class PeopleColumnOrderTests
     [Fact]
     public void MovePeopleColumn_LeavesTheRecordSchemaAlone()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var person = AddPerson(vm, ("FirstName", "Ada"), ("LastName", "Lovelace"), ("Department", "Analytics"));
         var fieldsBefore = new Dictionary<string, string>(person.Record.Fields, StringComparer.OrdinalIgnoreCase);
         var keysBefore = person.Cells.ToDictionary(c => c.Token, c => c.Key, StringComparer.OrdinalIgnoreCase);
@@ -129,7 +129,7 @@ public class PeopleColumnOrderTests
     [Fact]
     public void MovePeopleColumn_LeavesTemplateBindingsAndTheRenderedBadgeUnchanged()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var person = AddPerson(vm, ("FirstName", "Ada"), ("LastName", "Lovelace"), ("Department", "Analytics"), ("EmployeeId", "1001"));
 
         var tokensBefore = vm.Template.GetAllReferencedTokens().OrderBy(t => t).ToList();
@@ -146,7 +146,7 @@ public class PeopleColumnOrderTests
     [Fact]
     public void MovePeopleColumn_KeepsTheFieldMappingPointingAtTheSameColumns()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         AddPerson(vm, ("FirstName", "Ada"));
         var mappingBefore = vm.ColumnMappings.ToDictionary(m => m.TemplateToken, m => m.CsvColumn);
 
@@ -158,7 +158,7 @@ public class PeopleColumnOrderTests
     [Fact]
     public void ResetPeopleColumnOrder_PutsTheGridBackWithoutDisturbingValues()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var person = AddPerson(vm, ("FirstName", "Ada"), ("LastName", "Lovelace"), ("Department", "Analytics"));
         var orderBefore = vm.PeopleFieldColumns.Select(c => c.Token).ToList();
 
@@ -178,7 +178,7 @@ public class PeopleColumnOrderTests
     [Fact]
     public void MovePeopleColumnBy_StepsOnePlaceAndStopsAtTheEnds()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         AddPerson(vm, ("FirstName", "Ada"));
         var first = vm.PeopleFieldColumns[0];
 
@@ -193,7 +193,7 @@ public class PeopleColumnOrderTests
     {
         // With hundreds of rows a reorder has to be one move per row. Rebuilding would throw away every cell — and
         // with it each row's editor and anything half-typed into it — and re-bind the whole grid.
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         for (int i = 0; i < 400; i++)
         {
             AddPerson(vm, ("FirstName", "Person" + i));
@@ -218,7 +218,7 @@ public class PeopleColumnOrderTests
         string dir = Directory.CreateTempSubdirectory("badgeforge-columns").FullName;
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             AddPerson(vm, ("FirstName", "Ada"));
             vm.MovePeopleColumn(vm.PeopleFieldColumns.Single(c => c.Token == "LastName"), 0);
 
@@ -243,7 +243,7 @@ public class PeopleColumnOrderTests
         string dir = Directory.CreateTempSubdirectory("badgeforge-columns").FullName;
         try
         {
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             AddPerson(vm, ("FirstName", "Ada"), ("LastName", "Lovelace"));
             vm.MovePeopleColumn(vm.PeopleFieldColumns.Single(c => c.Token == "LastName"), 0);
 
@@ -254,7 +254,7 @@ public class PeopleColumnOrderTests
             Assert.StartsWith("LastName,FirstName", header);
 
             // Reading it back gives the same people, whatever order the columns came out in
-            var reopened = new MainWindowViewModel();
+            var reopened = new MainWindowViewModel(new MockCardPrinterDriver());
             await reopened.ImportRosterAsync(csv);
             Assert.Equal("Ada", reopened.People[0].Cells.Single(c => c.Token == "FirstName").Value);
             Assert.Equal("Lovelace", reopened.People[0].Cells.Single(c => c.Token == "LastName").Value);

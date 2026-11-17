@@ -18,7 +18,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void InitialState_LoadsDefaultTemplateAndFormat()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
 
         Assert.NotNull(vm.Template);
         Assert.Equal("Employee ID Badge", vm.Template.Name);
@@ -28,14 +28,14 @@ public class MainWindowViewModelTests
         Assert.Equal(53.98, vm.ActiveFormat.HeightMm);
 
         Assert.NotEmpty(vm.AvailablePrinters);
-        Assert.Contains(vm.AvailablePrinters, p => p.Contains("Mock IDP SMART-31"));
+        Assert.Contains(vm.AvailablePrinters, p => p == vm.SelectedPrinter);
         Assert.NotNull(vm.SelectedPrinter);
     }
 
     [Fact]
     public void LayerManagement_AddTextLayer_CreatesAndSelectsLayer()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         int initialCount = vm.Template.Layers.Count;
 
         vm.AddTextLayer(15.0, 20.0);
@@ -53,7 +53,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void TextColor_PickingColor_UpdatesLayerAndLeavesKResin()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.AddTextLayer();
         Assert.True(vm.TextPrintsAsPureBlack);
 
@@ -69,7 +69,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void TextColor_PickingBlack_KeepsKResin()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.AddTextLayer();
 
         vm.TextColorHex = "#000";
@@ -82,7 +82,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void TextColor_InvalidHex_LeavesLayerUnchanged()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.AddTextLayer();
         var before = vm.SelectedLayer;
 
@@ -95,7 +95,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void TextColor_KResinLayer_ReportsBlackUntilKResinTurnedOff()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.AddTextLayer();
         vm.TextColorHex = "#B42318";
 
@@ -109,7 +109,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void LayerManagement_AddPhotoLayer_CreatesPhotoLayer()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         int initialCount = vm.Template.Layers.Count;
 
         vm.AddPhotoLayer(10.0, 10.0);
@@ -124,7 +124,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void LayerManagement_AddBarcodeLayer_CreatesBarcodeLayer()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         int initialCount = vm.Template.Layers.Count;
 
         vm.AddBarcodeLayer(5.0, 40.0);
@@ -138,7 +138,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void LayerManagement_DeleteSelectedLayer_RemovesFromTemplate()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var firstLayer = vm.Template.Layers.First();
         vm.SelectedLayer = firstLayer;
 
@@ -150,7 +150,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void LayerManagement_DuplicateSelectedLayer_AddsClonedLayer()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var original = vm.Template.Layers.First();
         vm.SelectedLayer = original;
         int countBefore = vm.Template.Layers.Count;
@@ -168,7 +168,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void LayerManagement_MoveAndResizeSelectedLayer_ModifiesGeometry()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var original = vm.Template.Layers.First();
         vm.SelectedLayer = original;
 
@@ -189,7 +189,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void LayerManagement_MoveAndResize_WhenTemplateOrderDiffersFromZOrder_UpdatesCorrectListItem()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
 
         // Template storage order no longer matches the Z-ordered display list
         vm.Template.Layers.Reverse();
@@ -214,7 +214,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void CardFormat_SwitchingOrientation_UpdatesDimensions()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         Assert.False(vm.IsPortrait);
         Assert.Equal(85.6, vm.ActiveFormat.WidthMm);
         Assert.Equal(53.98, vm.ActiveFormat.HeightMm);
@@ -233,7 +233,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void CardFormat_SwitchingFormat_UpdatesToCR79()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.ActiveFormat = CardFormat.CR79;
 
         Assert.Equal(83.9, vm.ActiveFormat.WidthMm);
@@ -244,7 +244,7 @@ public class MainWindowViewModelTests
     [Fact]
     public async Task Pagination_WithLoadedData_NavigatesCorrectly()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         
         // Create temporary CSV file
         var tempCsv = Path.GetTempFileName();
@@ -300,7 +300,7 @@ public class MainWindowViewModelTests
     [Fact]
     public async Task People_ReflectRecords_CorrectInitialStatus()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var tempCsv = Path.GetTempFileName();
         try
         {
@@ -324,7 +324,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void BatchControls_InitialStatus_CanStartWhenDataLoaded()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         Assert.True(vm.CanStartBatch);
         Assert.False(vm.IsBatchRunning);
         Assert.False(vm.HopperPausePromptVisible);
@@ -334,7 +334,7 @@ public class MainWindowViewModelTests
     [Fact]
     public async Task HopperAlert_Resume_ClearsAlertPrompt()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         vm.HopperPausePromptVisible = true;
         vm.HopperPauseMessage = "Hopper full. Please clear output hopper.";
         Assert.True(vm.HopperPausePromptVisible);
@@ -346,7 +346,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void People_AddPerson_EditingFieldsFeedsTheBadge()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var person = vm.AddPerson();
 
         Assert.Same(person, Assert.Single(vm.People));
@@ -367,7 +367,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void People_GetOrAddPersonAfter_AddsAtTheEndButNeverAnotherBlankPerson()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var ann = AddNamedPerson(vm, "Ann", "Able");
         var bo = AddNamedPerson(vm, "Bo", "Adams");
 
@@ -390,7 +390,7 @@ public class MainWindowViewModelTests
     [Fact]
     public void People_MoveRemoveAndSort_KeepPrintOrder()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new MainWindowViewModel(new MockCardPrinterDriver());
         var ann = AddNamedPerson(vm, "Ann", "Able");
         var bo = AddNamedPerson(vm, "Bo", "Adams");
         var cy = AddNamedPerson(vm, "Cy", "Moss");
@@ -420,7 +420,7 @@ public class MainWindowViewModelTests
             string notImage = Path.Combine(dir, "notes.png");
             await File.WriteAllTextAsync(notImage, "not an image");
 
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             int added = await vm.AddPeopleFromPhotosAsync(new[] { jane, notImage });
 
             Assert.Equal(1, added);
@@ -451,7 +451,7 @@ public class MainWindowViewModelTests
         try
         {
             string photo = CreatePng(dir, "face.png", SKColors.Teal);
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             var ann = AddNamedPerson(vm, "Ann", "Able");
             var bo = AddNamedPerson(vm, "Bo", "Adams");
             var cy = AddNamedPerson(vm, "Cy", "Moss");
@@ -497,7 +497,7 @@ public class MainWindowViewModelTests
         try
         {
             string photo = CreatePng(dir, "cy.png", SKColors.Olive);
-            var vm = new MainWindowViewModel();
+            var vm = new MainWindowViewModel(new MockCardPrinterDriver());
             AddNamedPerson(vm, "Ann", "Able");
             var cy = AddNamedPerson(vm, "Cy", "Moss");
             Assert.True(await vm.SetPersonPhotoAsync(cy, photo));
@@ -506,7 +506,7 @@ public class MainWindowViewModelTests
             string csv = Path.Combine(dir, "people.csv");
             await vm.SavePeopleListAsync(csv);
 
-            var reopened = new MainWindowViewModel();
+            var reopened = new MainWindowViewModel(new MockCardPrinterDriver());
             await reopened.ImportRosterAsync(csv);
             Assert.Equal(new[] { "Cy Moss", "Ann Able" }, reopened.People.Select(p => p.Name));
             Assert.Equal(photo, reopened.People[0].PhotoPath);
